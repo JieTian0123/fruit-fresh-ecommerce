@@ -126,6 +126,12 @@ public class Product {
     private String merchantName;
 
     /**
+     * 分类名称（不存数据库，关联查询）
+     */
+    @TableField(exist = false)
+    private String categoryName;
+
+    /**
      * 店铺Logo（不存数据库，关联查询）
      */
     @TableField(exist = false)

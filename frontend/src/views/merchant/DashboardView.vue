@@ -79,50 +79,14 @@
       <!-- 销售额趋势 -->
       <div class="chart-section">
         <h4>销售额趋势</h4>
-        <div class="bar-chart" v-if="periodStats.trendLabels.length > 0">
-          <div class="chart-bars">
-            <div
-              v-for="(val, idx) in periodStats.trendSales"
-              :key="'s' + idx"
-              class="bar-item"
-            >
-              <div class="bar-wrapper">
-                <div
-                  class="bar sales-bar"
-                  :style="{ height: getBarHeight(val, maxSales) + '%' }"
-                >
-                  <span class="bar-tooltip" v-if="val > 0">¥{{ val.toFixed(0) }}</span>
-                </div>
-              </div>
-              <span class="bar-label">{{ periodStats.trendLabels[idx] }}</span>
-            </div>
-          </div>
-        </div>
+        <BaseChart v-if="periodStats.trendLabels.length > 0" :options="salesChartOptions" height="300px" />
         <div v-else class="chart-empty">暂无数据</div>
       </div>
 
       <!-- 订单量趋势 -->
       <div class="chart-section">
         <h4>订单量趋势</h4>
-        <div class="bar-chart" v-if="periodStats.trendLabels.length > 0">
-          <div class="chart-bars">
-            <div
-              v-for="(val, idx) in periodStats.trendOrders"
-              :key="'o' + idx"
-              class="bar-item"
-            >
-              <div class="bar-wrapper">
-                <div
-                  class="bar order-bar"
-                  :style="{ height: getBarHeight(val, maxOrders) + '%' }"
-                >
-                  <span class="bar-tooltip" v-if="val > 0">{{ val }}</span>
-                </div>
-              </div>
-              <span class="bar-label">{{ periodStats.trendLabels[idx] }}</span>
-            </div>
-          </div>
-        </div>
+        <BaseChart v-if="periodStats.trendLabels.length > 0" :options="ordersChartOptions" height="300px" />
         <div v-else class="chart-empty">暂无数据</div>
       </div>
     </div>
@@ -134,17 +98,19 @@
           <h3>最近订单</h3>
           <el-button text type="primary" @click="$router.push('/merchant/orders')">查看全部</el-button>
         </div>
-        <el-table :data="recentOrders" style="width: 100%">
-          <el-table-column prop="orderNo" label="订单号" width="180" />
-          <el-table-column prop="totalAmount" label="金额">
+        <el-table class="admin-data-table" :data="recentOrders" :fit="false" style="width: 100%">
+          <el-table-column prop="orderNo" label="订单号" width="210" class-name="admin-ellipsis" show-overflow-tooltip />
+          <el-table-column prop="totalAmount" label="金额" width="86">
             <template #default="{ row }">¥{{ row.totalAmount?.toFixed(2) }}</template>
           </el-table-column>
-          <el-table-column prop="status" label="状态">
+          <el-table-column prop="status" label="状态" width="86">
             <template #default="{ row }">
               <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="时间" width="160" />
+          <el-table-column label="时间" width="168" class-name="admin-nowrap">
+            <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+          </el-table-column>
         </el-table>
       </div>
       
@@ -174,6 +140,9 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { OrderStatusText } from '@/types'
 import type { Order, Product } from '@/types'
 import { getMerchantProductList, getMerchantOrderList, getMerchantOverview, getMerchantPeriodStats } from '@/api/merchant'
+import BaseChart from '@/components/BaseChart.vue'
+import type { EChartsOption } from 'echarts'
+import { formatDateTime } from '@/utils/format'
 
 const defaultImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect fill='%23f5f5f5' width='200' height='200'/%3E%3Ctext x='100' y='110' text-anchor='middle' font-size='48'%3E🍊%3C/text%3E%3C/svg%3E"
 
@@ -197,22 +166,35 @@ const periodStats = reactive({
   trendOrders: [] as number[]
 })
 
-const maxSales = computed(() => {
-  if (periodStats.trendSales.length === 0) return 1
-  const max = Math.max(...periodStats.trendSales)
-  return max > 0 ? max : 1
-})
+// 销售额趋势图配置
+const salesChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis', formatter: '{b}<br/>销售额: ¥{c}' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', data: periodStats.trendLabels, axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+  series: [{
+    type: 'bar',
+    data: periodStats.trendSales,
+    itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] },
+    barMaxWidth: 40
+  }]
+}))
 
-const maxOrders = computed(() => {
-  if (periodStats.trendOrders.length === 0) return 1
-  const max = Math.max(...periodStats.trendOrders)
-  return max > 0 ? max : 1
-})
-
-function getBarHeight(value: number, max: number): number {
-  if (max === 0) return 0
-  return Math.max((value / max) * 100, value > 0 ? 4 : 0)
-}
+// 订单量趋势图配置
+const ordersChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', data: periodStats.trendLabels, axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'value' },
+  series: [{
+    type: 'line',
+    data: periodStats.trendOrders,
+    smooth: true,
+    areaStyle: { color: 'rgba(245, 158, 11, 0.15)' },
+    lineStyle: { color: '#f59e0b', width: 2 },
+    itemStyle: { color: '#f59e0b' }
+  }]
+}))
 
 function getStatusText(status: number) {
   return OrderStatusText[status] || '未知'
@@ -380,86 +362,6 @@ onMounted(() => {
   font-weight: 600;
   margin-bottom: 12px;
   color: var(--color-text-primary);
-}
-
-.bar-chart {
-  overflow-x: auto;
-}
-
-.chart-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 160px;
-  min-width: 100%;
-  padding: 0 4px;
-}
-
-.bar-item {
-  flex: 1;
-  min-width: 20px;
-  max-width: 60px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-}
-
-.bar-wrapper {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.bar {
-  width: 70%;
-  min-height: 2px;
-  border-radius: 3px 3px 0 0;
-  transition: height 0.3s ease;
-  position: relative;
-  cursor: pointer;
-}
-
-.bar:hover .bar-tooltip {
-  opacity: 1;
-}
-
-.bar-tooltip {
-  position: absolute;
-  top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-  background: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.sales-bar {
-  background: linear-gradient(180deg, #10b981, #059669);
-}
-
-.order-bar {
-  background: linear-gradient(180deg, #f59e0b, #d97706);
-}
-
-.bar-label {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin-top: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
 }
 
 .chart-empty {

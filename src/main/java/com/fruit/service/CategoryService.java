@@ -24,6 +24,11 @@ public interface CategoryService extends IService<Category> {
     PageResult<Category> listPage(Integer pageNum, Integer pageSize);
 
     /**
+     * 获取启用分类列表
+     */
+    List<Category> listEnabled();
+
+    /**
      * 添加分类
      */
     void addCategory(CategoryDTO dto);

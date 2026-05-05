@@ -34,7 +34,7 @@ public class CategoryController {
     @ApiOperation("获取分类列表")
     @GetMapping("/list")
     public Result<List<Category>> list() {
-        List<Category> list = categoryService.list();
+        List<Category> list = categoryService.listEnabled();
         return Result.success(list);
     }
 }

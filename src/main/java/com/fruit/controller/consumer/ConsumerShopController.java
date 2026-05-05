@@ -30,10 +30,7 @@ public class ConsumerShopController {
     @ApiOperation("获取店铺信息")
     @GetMapping("/{id}")
     public Result<MerchantShop> getShopInfo(@PathVariable Long id) {
-        LambdaQueryWrapper<MerchantShop> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(MerchantShop::getMerchantId, id);
-        wrapper.eq(MerchantShop::getStatus, 1);
-        MerchantShop shop = merchantShopMapper.selectOne(wrapper);
+        MerchantShop shop = merchantShopMapper.selectById(id);
         return Result.success(shop);
     }
 
@@ -43,14 +40,25 @@ public class ConsumerShopController {
             @PathVariable Long id,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "12") Integer pageSize) {
+        MerchantShop shop = merchantShopMapper.selectById(id);
+        PageResult<Product> pageResult = new PageResult<>();
+        pageResult.setPageNum(pageNum.longValue());
+        pageResult.setPageSize(pageSize.longValue());
+
+        if (shop == null || shop.getStatus() == null || shop.getStatus() != 1) {
+            pageResult.setTotal(0L);
+            pageResult.setPages(0L);
+            pageResult.setList(java.util.Collections.emptyList());
+            return Result.success(pageResult);
+        }
+
         Page<Product> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Product::getMerchantId, id);
+        wrapper.eq(Product::getMerchantId, shop.getMerchantId());
         wrapper.eq(Product::getStatus, 1);
         wrapper.orderByDesc(Product::getCreateTime);
         Page<Product> result = productMapper.selectPage(page, wrapper);
 
-        PageResult<Product> pageResult = new PageResult<>();
         pageResult.setPageNum(pageNum.longValue());
         pageResult.setPageSize(pageSize.longValue());
         pageResult.setTotal(result.getTotal());

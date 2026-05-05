@@ -1,7 +1,7 @@
 <template>
   <div class="admin-dashboard">
     <h2>管理后台</h2>
-    
+
     <!-- 概览卡片 -->
     <div class="stat-cards">
       <div class="stat-card">
@@ -13,7 +13,7 @@
           <p class="stat-value">{{ stats.totalUsers }}</p>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon" style="background: #fff3e0;">
           <el-icon color="#FF8C00"><Shop /></el-icon>
@@ -23,7 +23,7 @@
           <p class="stat-value">{{ stats.totalMerchants }}</p>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon" style="background: #e3f2fd;">
           <el-icon color="#1976D2"><Goods /></el-icon>
@@ -33,7 +33,7 @@
           <p class="stat-value">{{ stats.totalProducts }}</p>
         </div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-icon" style="background: #fce4ec;">
           <el-icon color="#E91E63"><ShoppingCart /></el-icon>
@@ -44,7 +44,7 @@
         </div>
       </div>
     </div>
-    
+
     <!-- 销售统计 -->
     <div class="stat-cards secondary">
       <div class="stat-card wide">
@@ -59,7 +59,7 @@
           </p>
         </div>
       </div>
-      
+
       <div class="stat-card wide">
         <div class="stat-info">
           <p class="stat-label">今日订单数</p>
@@ -72,7 +72,7 @@
           </p>
         </div>
       </div>
-      
+
       <div class="stat-card wide">
         <div class="stat-info">
           <p class="stat-label">今日新增用户</p>
@@ -115,54 +115,34 @@
       <!-- 销售额趋势 -->
       <div class="chart-section">
         <h4>销售额趋势</h4>
-        <div class="bar-chart" v-if="periodStats.trendLabels.length > 0">
-          <div class="chart-bars">
-            <div
-              v-for="(val, idx) in periodStats.trendSales"
-              :key="'s' + idx"
-              class="bar-item"
-            >
-              <div class="bar-wrapper">
-                <div
-                  class="bar sales-bar"
-                  :style="{ height: getBarHeight(val, maxSales) + '%' }"
-                >
-                  <span class="bar-tooltip" v-if="val > 0">¥{{ val.toFixed(0) }}</span>
-                </div>
-              </div>
-              <span class="bar-label">{{ periodStats.trendLabels[idx] }}</span>
-            </div>
-          </div>
-        </div>
+        <BaseChart v-if="periodStats.trendLabels.length > 0" :options="salesChartOptions" height="300px" />
         <div v-else class="chart-empty">暂无数据</div>
       </div>
 
       <!-- 订单量趋势 -->
       <div class="chart-section">
         <h4>订单量趋势</h4>
-        <div class="bar-chart" v-if="periodStats.trendLabels.length > 0">
-          <div class="chart-bars">
-            <div
-              v-for="(val, idx) in periodStats.trendOrders"
-              :key="'o' + idx"
-              class="bar-item"
-            >
-              <div class="bar-wrapper">
-                <div
-                  class="bar order-bar"
-                  :style="{ height: getBarHeight(val, maxOrders) + '%' }"
-                >
-                  <span class="bar-tooltip" v-if="val > 0">{{ val }}</span>
-                </div>
-              </div>
-              <span class="bar-label">{{ periodStats.trendLabels[idx] }}</span>
-            </div>
-          </div>
-        </div>
+        <BaseChart v-if="periodStats.trendLabels.length > 0" :options="ordersChartOptions" height="300px" />
         <div v-else class="chart-empty">暂无数据</div>
       </div>
     </div>
-    
+
+    <!-- 数据分析图表 -->
+    <div class="charts-row">
+      <div class="panel">
+        <div class="panel-header">
+          <h3>订单状态分布</h3>
+        </div>
+        <BaseChart :options="orderStatusChartOptions" height="300px" />
+      </div>
+      <div class="panel">
+        <div class="panel-header">
+          <h3>用户增长趋势</h3>
+        </div>
+        <BaseChart :options="userGrowthChartOptions" height="300px" />
+      </div>
+    </div>
+
     <div class="dashboard-grid">
       <!-- 最新订单 -->
       <div class="panel">
@@ -170,20 +150,22 @@
           <h3>最新订单</h3>
           <el-button text type="primary" @click="$router.push('/admin/orders')">查看全部</el-button>
         </div>
-        <el-table :data="recentOrders" size="small">
-          <el-table-column prop="orderNo" label="订单号" width="160" />
-          <el-table-column prop="totalAmount" label="金额">
+        <el-table class="admin-data-table" :data="recentOrders" :fit="false" size="small">
+          <el-table-column prop="orderNo" label="订单号" width="210" class-name="admin-ellipsis" show-overflow-tooltip />
+          <el-table-column prop="totalAmount" label="金额" width="86">
             <template #default="{ row }">¥{{ row.totalAmount?.toFixed(2) }}</template>
           </el-table-column>
-          <el-table-column prop="status" label="状态">
+          <el-table-column prop="status" label="状态" width="86">
             <template #default="{ row }">
               <el-tag size="small" :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="createTime" label="时间" width="140" />
+          <el-table-column label="时间" width="168" class-name="admin-nowrap">
+            <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+          </el-table-column>
         </el-table>
       </div>
-      
+
       <!-- 新注册用户 -->
       <div class="panel">
         <div class="panel-header">
@@ -195,7 +177,7 @@
             <el-avatar :size="40">{{ user.nickname?.[0] || user.username?.[0] }}</el-avatar>
             <div class="user-info">
               <p class="name">{{ user.nickname || user.username }}</p>
-              <p class="time">{{ user.createTime }}</p>
+              <p class="time">{{ formatDateTime(user.createTime) }}</p>
             </div>
           </div>
         </div>
@@ -208,7 +190,10 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { OrderStatusText } from '@/types'
 import type { Order, UserInfo } from '@/types'
-import { getUserList, getOrderListForAdmin, getAdminOverview, getAdminGrowth, getAdminPeriodStats } from '@/api/admin'
+import { getUserList, getOrderListForAdmin, getAdminOverview, getAdminGrowth, getAdminPeriodStats, getOrderStatusDistribution, getUserGrowthTrend } from '@/api/admin'
+import BaseChart from '@/components/BaseChart.vue'
+import type { EChartsOption } from 'echarts'
+import { formatDateTime } from '@/utils/format'
 
 const stats = reactive({
   totalUsers: 0,
@@ -235,22 +220,77 @@ const periodStats = reactive({
   trendOrders: [] as number[]
 })
 
-const maxSales = computed(() => {
-  if (periodStats.trendSales.length === 0) return 1
-  const max = Math.max(...periodStats.trendSales)
-  return max > 0 ? max : 1
-})
+const orderStatusData = ref([
+  { value: 0, name: '待付款', itemStyle: { color: '#E6A23C' } },
+  { value: 0, name: '待发货', itemStyle: { color: '#409EFF' } },
+  { value: 0, name: '待收货', itemStyle: { color: '#67C23A' } },
+  { value: 0, name: '已完成', itemStyle: { color: '#228B22' } },
+  { value: 0, name: '已取消', itemStyle: { color: '#909399' } }
+])
 
-const maxOrders = computed(() => {
-  if (periodStats.trendOrders.length === 0) return 1
-  const max = Math.max(...periodStats.trendOrders)
-  return max > 0 ? max : 1
-})
+const userGrowthData = ref<number[]>([])
 
-function getBarHeight(value: number, max: number): number {
-  if (max === 0) return 0
-  return Math.max((value / max) * 100, value > 0 ? 4 : 0)
-}
+// 销售额趋势图配置
+const salesChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis', formatter: '{b}<br/>销售额: ¥{c}' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', data: periodStats.trendLabels, axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' } },
+  series: [{
+    type: 'bar',
+    data: periodStats.trendSales,
+    itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] },
+    barMaxWidth: 40
+  }]
+}))
+
+// 订单量趋势图配置
+const ordersChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', data: periodStats.trendLabels, axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'value' },
+  series: [{
+    type: 'line',
+    data: periodStats.trendOrders,
+    smooth: true,
+    areaStyle: { color: 'rgba(245, 158, 11, 0.15)' },
+    lineStyle: { color: '#f59e0b', width: 2 },
+    itemStyle: { color: '#f59e0b' }
+  }]
+}))
+
+// 订单状态分布饼图
+const orderStatusChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  legend: { bottom: 0, itemWidth: 12, itemHeight: 12, textStyle: { fontSize: 12 } },
+  series: [{
+    type: 'pie',
+    radius: ['40%', '65%'],
+    center: ['50%', '45%'],
+    avoidLabelOverlap: true,
+    itemStyle: { borderRadius: 6, borderColor: '#fff', borderWidth: 2 },
+    label: { show: false },
+    emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
+    data: orderStatusData.value
+  }]
+}))
+
+// 用户增长趋势
+const userGrowthChartOptions = computed<EChartsOption>(() => ({
+  tooltip: { trigger: 'axis' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { type: 'category', data: periodStats.trendLabels, axisLabel: { fontSize: 11 } },
+  yAxis: { type: 'value' },
+  series: [{
+    type: 'line',
+    data: userGrowthData.value,
+    smooth: true,
+    areaStyle: { color: 'rgba(34, 139, 34, 0.12)' },
+    lineStyle: { color: '#228B22', width: 2 },
+    itemStyle: { color: '#228B22' }
+  }]
+}))
 
 function getStatusText(status: number) {
   return OrderStatusText[status] || '未知'
@@ -275,19 +315,37 @@ async function loadPeriodStats() {
       periodStats.trendSales = (data.trendSales || []).map((v: any) => Number(v) || 0)
       periodStats.trendOrders = (data.trendOrders || []).map((v: any) => Number(v) || 0)
     }
+
+    // 加载用户增长趋势（使用当前时段）
+    await loadUserGrowthTrend()
   } catch (error) {
     console.error('加载时段统计失败:', error)
   }
 }
 
+async function loadUserGrowthTrend() {
+  try {
+    // 根据当前时段选择API参数
+    const period = currentPeriod.value === 'month' || currentPeriod.value === 'quarter' || currentPeriod.value === 'year' ? 'month' : 'week'
+    const res = await getUserGrowthTrend(period)
+    const data = res.data as any[]
+    if (data && data.length > 0) {
+      userGrowthData.value = data.map(item => item.count || 0)
+    }
+  } catch (error) {
+    console.error('加载用户增长趋势失败:', error)
+  }
+}
+
 async function loadDashboard() {
   try {
-    // 并行加载统计数据、增长率、最新订单和最新用户
-    const [overviewRes, growthRes, orderRes, recentUserRes] = await Promise.all([
+    // 并行加载统计数据、增长率、最新订单、最新用户、订单状态分布
+    const [overviewRes, growthRes, orderRes, recentUserRes, orderStatusRes] = await Promise.all([
       getAdminOverview(),
       getAdminGrowth(),
       getOrderListForAdmin({ pageNum: 1, pageSize: 5 }),
-      getUserList({ userType: 0, pageNum: 1, pageSize: 3 })
+      getUserList({ userType: 0, pageNum: 1, pageSize: 3 }),
+      getOrderStatusDistribution()
     ])
 
     // 统计概览
@@ -314,6 +372,21 @@ async function loadDashboard() {
 
     // 最新用户
     recentUsers.value = (recentUserRes.data as any)?.records || (recentUserRes.data as any)?.list || []
+
+    // 订单状态分布（使用真实API数据）
+    const statusData = orderStatusRes.data as any[]
+    if (statusData && statusData.length > 0) {
+      orderStatusData.value = statusData
+    } else {
+      // 如果没有数据，显示空状态
+      orderStatusData.value = [
+        { value: 0, name: '待付款', itemStyle: { color: '#E6A23C' } },
+        { value: 0, name: '待发货', itemStyle: { color: '#409EFF' } },
+        { value: 0, name: '待收货', itemStyle: { color: '#67C23A' } },
+        { value: 0, name: '已完成', itemStyle: { color: '#228B22' } },
+        { value: 0, name: '已取消', itemStyle: { color: '#909399' } }
+      ]
+    }
   } catch (error) {
     console.error('加载仪表盘数据失败:', error)
   }
@@ -455,84 +528,11 @@ onMounted(() => {
   color: var(--color-text-primary);
 }
 
-.bar-chart {
-  overflow-x: auto;
-}
-
-.chart-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  height: 160px;
-  min-width: 100%;
-  padding: 0 4px;
-}
-
-.bar-item {
-  flex: 1;
-  min-width: 20px;
-  max-width: 60px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  height: 100%;
-}
-
-.bar-wrapper {
-  flex: 1;
-  width: 100%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-}
-
-.bar {
-  width: 70%;
-  min-height: 2px;
-  border-radius: 3px 3px 0 0;
-  transition: height 0.3s ease;
-  position: relative;
-  cursor: pointer;
-}
-
-.bar:hover .bar-tooltip {
-  opacity: 1;
-}
-
-.bar-tooltip {
-  position: absolute;
-  top: -24px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 11px;
-  white-space: nowrap;
-  color: var(--color-text-primary);
-  background: white;
-  padding: 2px 6px;
-  border-radius: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-  opacity: 0;
-  transition: opacity 0.2s;
-  pointer-events: none;
-}
-
-.sales-bar {
-  background: linear-gradient(180deg, #10b981, #059669);
-}
-
-.order-bar {
-  background: linear-gradient(180deg, #f59e0b, #d97706);
-}
-
-.bar-label {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin-top: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  text-align: center;
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
 }
 
 .chart-empty {

@@ -45,6 +45,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/merchant/login",
                         "/merchant/register",
                         "/admin/login",
+                        "/captcha",
                         // 消费者公开接口
                         "/consumer/product/**",
                         "/consumer/category/**",

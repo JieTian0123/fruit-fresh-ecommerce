@@ -31,12 +31,15 @@ public class ProductController {
     public Result<PageResult<Product>> list(
             @ApiParam("分类ID") @RequestParam(required = false) Long categoryId,
             @ApiParam("关键词") @RequestParam(required = false) String keyword,
-            @ApiParam("排序字段") @RequestParam(defaultValue = "createTime") String sortField,
+            @ApiParam("排序字段") @RequestParam(required = false) String sortField,
+            @ApiParam("排序字段") @RequestParam(required = false) String sortBy,
             @ApiParam("排序方式") @RequestParam(defaultValue = "desc") String sortOrder,
+            @ApiParam("活动类型") @RequestParam(required = false) String activity,
             @ApiParam("页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @ApiParam("每页大小") @RequestParam(defaultValue = "10") Integer pageSize) {
 
-        PageResult<Product> pageResult = productService.listForConsumer(categoryId, keyword, sortField, sortOrder, pageNum, pageSize);
+        String effectiveSort = sortField != null ? sortField : (sortBy != null ? sortBy : "createTime");
+        PageResult<Product> pageResult = productService.listForConsumer(categoryId, keyword, effectiveSort, sortOrder, activity, pageNum, pageSize);
         return Result.success(pageResult);
     }
 

@@ -7,6 +7,7 @@ import type { ApiResponse, PageResult, Product, Order, MerchantShop, ShopDTO } f
 
 // 商品管理
 export function getMerchantProductList(params: {
+  keyword?: string
   status?: number
   pageNum: number
   pageSize: number
@@ -26,6 +27,7 @@ export function offSaleProduct(id: number) {
 
 // 订单管理
 export function getMerchantOrderList(params: {
+  orderNo?: string
   status?: number
   pageNum: number
   pageSize: number

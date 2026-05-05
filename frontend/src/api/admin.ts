@@ -1,5 +1,5 @@
 import request from './request'
-import type { ApiResponse, PageResult, UserInfo, Product, Order, Banner, Coupon, Announcement, MerchantShop } from '@/types'
+import type { ApiResponse, PageResult, UserInfo, Product, Order, Banner, Coupon, Announcement, MerchantShop, Category, HomeActivity } from '@/types'
 
 /**
  * 管理员API模块
@@ -54,6 +54,27 @@ export function deleteProduct(id: number) {
   return request.delete<ApiResponse<void>>(`/admin/product/delete/${id}`)
 }
 
+// 分类管理
+export function getCategoryListForAdmin(params: { pageNum: number; pageSize: number }) {
+  return request.get<ApiResponse<PageResult<Category>>>('/admin/category/list', { params })
+}
+
+export function addCategory(data: Partial<Category>) {
+  return request.post<ApiResponse<void>>('/admin/category/add', data)
+}
+
+export function updateCategory(id: number, data: Partial<Category>) {
+  return request.put<ApiResponse<void>>(`/admin/category/update/${id}`, data)
+}
+
+export function deleteCategory(id: number) {
+  return request.delete<ApiResponse<void>>(`/admin/category/delete/${id}`)
+}
+
+export function updateCategoryStatus(id: number, status: number) {
+  return request.put<ApiResponse<void>>(`/admin/category/status/${id}`, null, { params: { status } })
+}
+
 // 订单管理
 export function getOrderListForAdmin(params: {
   status?: number
@@ -91,6 +112,15 @@ export function deleteBanner(id: number) {
 
 export function updateBannerStatus(id: number, status: number) {
   return request.put<ApiResponse<void>>(`/admin/banner/status/${id}`, null, { params: { status } })
+}
+
+// 首页活动管理
+export function getHomeActivityList() {
+  return request.get<ApiResponse<HomeActivity[]>>('/admin/activity/list', { silentError: true })
+}
+
+export function updateHomeActivity(code: string, data: Partial<HomeActivity>) {
+  return request.put<ApiResponse<void>>(`/admin/activity/${code}`, data, { silentError: true })
 }
 
 // 优惠券管理
@@ -172,4 +202,14 @@ export function getAdminGrowth() {
 // 时段统计
 export function getAdminPeriodStats(period: string) {
   return request.get<ApiResponse<any>>('/admin/stats/period', { params: { period } })
+}
+
+// 订单状态分布
+export function getOrderStatusDistribution() {
+  return request.get<ApiResponse<any[]>>('/admin/stats/order-status')
+}
+
+// 用户增长趋势
+export function getUserGrowthTrend(period: string = 'week') {
+  return request.get<ApiResponse<any[]>>('/admin/stats/user-growth', { params: { period } })
 }

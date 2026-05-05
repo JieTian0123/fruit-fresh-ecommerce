@@ -1,7 +1,9 @@
 <template>
   <div class="member-view">
-    <!-- 会员头部 -->
-    <div class="member-header">
+    <!-- 顶部布局：会员信息 + VIP区域 -->
+    <div class="top-dashboard-grid">
+      <!-- 会员头部 -->
+      <div class="member-header">
       <div class="member-info">
         <el-avatar :size="80" :src="userInfo?.avatar" />
         <div class="info-right">
@@ -16,20 +18,38 @@
           </div>
         </div>
       </div>
-      <div class="member-stats">
+
+      <div class="stats-card">
         <div class="stat-item">
           <div class="stat-value">{{ userInfo?.points || 0 }}</div>
           <div class="stat-label">积分</div>
         </div>
-        <div class="stat-divider"></div>
         <div class="stat-item">
           <div class="stat-value">¥{{ userInfo?.totalConsumption || '0.00' }}</div>
           <div class="stat-label">累计消费</div>
         </div>
-        <div class="stat-divider"></div>
         <div class="stat-item">
           <div class="stat-value">{{ signInStatus?.continuousDays || 0 }}</div>
           <div class="stat-label">连续签到(天)</div>
+        </div>
+      </div>
+
+      <div class="actions-card">
+        <div class="action-item" @click="$router.push('/member/sign-in')">
+          <el-icon><Calendar /></el-icon>
+          <span>签到记录</span>
+        </div>
+        <div class="action-item" @click="$router.push('/coupons?tab=my')">
+          <el-icon><Ticket /></el-icon>
+          <span>我的优惠券</span>
+        </div>
+        <div class="action-item" @click="$router.push('/follow-shops')">
+          <el-icon><Shop /></el-icon>
+          <span>我的关注 ({{ followCount }})</span>
+        </div>
+        <div class="action-item" @click="$router.push('/coupons')">
+          <el-icon><Present /></el-icon>
+          <span>积分商城</span>
         </div>
       </div>
     </div>
@@ -132,7 +152,7 @@
       <!-- VIP套餐卡片 -->
       <div class="vip-plans" v-if="vipPlans.length > 0">
         <h4 class="vip-plans-title">开通VIP会员</h4>
-        <div class="vip-plan-single">
+        <div class="vip-plan-cards">
           <div class="vip-plan-card" v-for="plan in vipPlans" :key="plan.id">
             <div class="plan-header">
               <el-icon :size="22"><Star /></el-icon>
@@ -163,141 +183,31 @@
         </div>
       </div>
     </el-card>
+    </div>
 
-    <!-- 签到区域 -->
-    <el-card class="sign-in-section">
-      <template #header>
-        <div class="section-header">
-          <h3><el-icon><Calendar /></el-icon> 每日签到</h3>
-          <div class="sign-in-action">
-            <span v-if="signInStatus?.signedToday" class="signed-text">
-              <el-icon color="#67C23A"><CircleCheckFilled /></el-icon>
-              今日已签到 +{{ todayPointsEarned }}积分
-            </span>
-            <el-button
-              v-else
-              type="primary"
-              :loading="signInLoading"
-              @click="handleSignIn"
-            >
-              立即签到
-            </el-button>
-            <el-tooltip placement="top">
-              <template #content>
-                <div>签到规则：</div>
-                <div>基础：每日10积分</div>
-                <div>连续签到额外奖励：(天数-1)×2，最多+10</div>
-                <div>第1天=10分，第2天=12分，第6天+=20分</div>
-                <div style="color: #f6d365; margin-top: 4px;">VIP用户签到积分双倍</div>
-              </template>
-              <el-icon class="tip-icon"><QuestionFilled /></el-icon>
-            </el-tooltip>
+
+    <div class="master-grid">
+      <!-- 积分明细概览 (span 6) -->
+      <div class="grid-card grid-card-full points-overview">
+        <div class="points-header">
+          <h3><el-icon><List /></el-icon> 最近积分变动</h3>
+          <el-button link type="primary" @click="$router.push('/member/points-log')">查看更多 <el-icon><ArrowRight /></el-icon></el-button>
+        </div>
+        <div class="points-list" v-if="pointsLogList && pointsLogList.length > 0">
+          <div class="points-item" v-for="item in pointsLogList.slice(0, 3)" :key="item.id">
+            <div class="points-item-left">
+              <span class="points-desc">{{ item.description }}</span>
+              <span class="points-time">{{ formatTime(item.createTime) }}</span>
+            </div>
+            <div class="points-item-right" :class="item.points > 0 ? 'points-add' : 'points-deduct'">
+              {{ item.points > 0 ? '+' : '' }}{{ item.points }}
+            </div>
           </div>
         </div>
-      </template>
-      <el-calendar v-model="calendarDate">
-        <template #date-cell="{ data }">
-          <div class="calendar-cell" :class="{ 'signed': isSignedDate(data.day) }">
-            <span class="day-num">{{ getDayNum(data.day) }}</span>
-            <span v-if="isSignedDate(data.day)" class="sign-mark">
-              +{{ getSignedPoints(data.day) }}
-            </span>
-          </div>
-        </template>
-      </el-calendar>
-    </el-card>
-
-    <!-- 功能卡片 -->
-    <el-row :gutter="20" class="member-content">
-      <el-col :span="8">
-        <el-card class="feature-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="header-icon" :size="24" color="#409EFF"><Ticket /></el-icon>
-              <span>我的优惠券</span>
-            </div>
-          </template>
-          <div class="card-content">
-            <p>查看和使用您的优惠券</p>
-            <el-button type="primary" @click="goToCoupons">查看优惠券</el-button>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="8">
-        <el-card class="feature-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="header-icon" :size="24" color="#67C23A"><Shop /></el-icon>
-              <span>我的店铺</span>
-            </div>
-          </template>
-          <div class="card-content">
-            <p>管理您关注的店铺</p>
-            <el-button type="success" @click="goToFollowShops">关注的店铺</el-button>
-          </div>
-        </el-card>
-      </el-col>
-
-      <el-col :span="8">
-        <el-card class="feature-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="header-icon" :size="24" color="#E6A23C"><Star /></el-icon>
-              <span>积分商城</span>
-            </div>
-          </template>
-          <div class="card-content">
-            <p>使用积分兑换优惠券</p>
-            <el-button type="warning" @click="$router.push('/point-exchange')">去兑换</el-button>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <!-- 积分记录 -->
-    <el-card class="points-log-section">
-      <template #header>
-        <div class="section-header">
-          <h3><el-icon><Coin /></el-icon> 积分记录</h3>
-        </div>
-      </template>
-      <el-table :data="pointsLogList" v-loading="pointsLoading" stripe>
-        <el-table-column label="时间" prop="createTime" width="180">
-          <template #default="{ row }">
-            {{ formatTime(row.createTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" width="120">
-          <template #default="{ row }">
-            <el-tag size="small" :type="getSourceTagType(row.sourceType)">
-              {{ PointSourceTypeText[row.sourceType] || '其他' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="描述" prop="description" />
-        <el-table-column label="积分变动" width="120" align="center">
-          <template #default="{ row }">
-            <span :class="row.points > 0 ? 'points-add' : 'points-deduct'">
-              {{ row.points > 0 ? '+' : '' }}{{ row.points }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="余额" prop="balanceAfter" width="100" align="center" />
-      </el-table>
-      <div class="pagination" v-if="pointsTotal > 0">
-        <el-pagination
-          v-model:current-page="pointsPageNum"
-          v-model:page-size="pointsPageSize"
-          :total="pointsTotal"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @current-change="loadPointsLog"
-          @size-change="loadPointsLog"
-        />
+        <div v-else class="empty-points">暂无变动记录</div>
       </div>
-      <el-empty v-if="!pointsLoading && pointsLogList.length === 0" description="暂无积分记录" />
-    </el-card>
+    </div>
+
 
   </div>
 </template>
@@ -308,17 +218,17 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Ticket, Shop, Star, Check, Calendar, Coin, Trophy,
-  CircleCheckFilled, QuestionFilled
+  CircleCheckFilled, Present
 } from '@element-plus/icons-vue'
 import { getCurrentUser } from '@/api/user'
+import { getMyFollowShops } from '@/api/shop'
 import { getVipStatus, getVipPlans, purchaseVip } from '@/api/vip'
 import {
   signIn as signInApi,
   getSignInStatus,
-  getMonthSignIns,
   getPointsLog
 } from '@/api/points'
-import type { UserPointsLog, UserSignIn, SignInStatus } from '@/types'
+import type { UserPointsLog, SignInStatus } from '@/types'
 import type { VipPlan, VipStatus } from '@/types'
 import { PointSourceTypeText } from '@/types'
 
@@ -329,9 +239,30 @@ const userInfo = ref<any>(null)
 
 // 签到相关
 const signInStatus = ref<SignInStatus | null>(null)
-const monthSignIns = ref<UserSignIn[]>([])
 const signInLoading = ref(false)
-const calendarDate = ref(new Date())
+
+// 关注数
+const followCount = ref(0)
+const loadFollowCount = async () => {
+  try {
+    const res = await getMyFollowShops()
+    if (res.code === 200) {
+      const data = res.data as any
+      if (Array.isArray(data)) {
+        followCount.value = data.length
+      } else if (Array.isArray(data?.records)) {
+        followCount.value = data.records.length
+      } else if (Array.isArray(data?.list)) {
+        followCount.value = data.list.length
+      } else {
+        const total = Number(data?.total)
+        followCount.value = Number.isFinite(total) && total > 0 ? total : 0
+      }
+    }
+  } catch (error) {
+    console.error('加载关注数失败:', error)
+  }
+}
 
 // 积分记录
 const pointsLogList = ref<UserPointsLog[]>([])
@@ -339,6 +270,7 @@ const pointsLoading = ref(false)
 const pointsPageNum = ref(1)
 const pointsPageSize = ref(10)
 const pointsTotal = ref(0)
+const pointsLogVisible = ref(false)
 
 // VIP会员
 const vipStatus = ref<VipStatus | null>(null)
@@ -346,20 +278,11 @@ const vipPlans = ref<VipPlan[]>([])
 const vipLoading = ref(false)
 const purchaseLoading = ref(false)
 
-// 计算今日可获得积分
+// 计算今日可获得积分（已不使用，但保留以备需要）
 const todayPointsEarned = computed(() => {
   const days = signInStatus.value?.continuousDays || 1
   const extra = Math.min((days - 1) * 2, 10)
   return 10 + extra
-})
-
-// 签到日期集合
-const signedDateSet = computed(() => {
-  const set = new Map<string, number>()
-  monthSignIns.value.forEach(s => {
-    set.set(s.signDate, s.pointsEarned)
-  })
-  return set
 })
 
 // 加载用户信息
@@ -383,19 +306,6 @@ const loadSignInStatus = async () => {
     }
   } catch (error) {
     console.error('加载签到状态失败:', error)
-  }
-}
-
-// 加载本月签到记录
-const loadMonthSignIns = async () => {
-  try {
-    const date = calendarDate.value
-    const res = await getMonthSignIns(date.getFullYear(), date.getMonth() + 1)
-    if (res.code === 200) {
-      monthSignIns.value = (res.data as UserSignIn[]) || []
-    }
-  } catch (error) {
-    console.error('加载签到记录失败:', error)
   }
 }
 
@@ -496,16 +406,17 @@ const parseVipBenefits = (benefits: string | undefined): string[] => {
 
 // 签到
 const handleSignIn = async () => {
+  if (signInStatus.value?.signedToday) return
   signInLoading.value = true
   try {
     const res = await signInApi()
     if (res.code === 200) {
       ElMessage.success('签到成功！')
-      // 刷新数据
+      // 刷新数据（包括积分记录实时更新）
       await Promise.all([
         loadSignInStatus(),
-        loadMonthSignIns(),
-        loadUserInfo()
+        loadUserInfo(),
+        loadPointsLog()
       ])
     }
   } catch (error) {
@@ -513,21 +424,6 @@ const handleSignIn = async () => {
   } finally {
     signInLoading.value = false
   }
-}
-
-// 判断日期是否已签到
-const isSignedDate = (day: string): boolean => {
-  return signedDateSet.value.has(day)
-}
-
-// 获取签到日积分
-const getSignedPoints = (day: string): number => {
-  return signedDateSet.value.get(day) || 0
-}
-
-// 获取日期数字
-const getDayNum = (day: string): string => {
-  return day.split('-')[2]
 }
 
 // 格式化时间
@@ -563,10 +459,10 @@ const goToFollowShops = () => {
 onMounted(() => {
   loadUserInfo()
   loadSignInStatus()
-  loadMonthSignIns()
   loadPointsLog()
   loadVipStatus()
   loadVipPlans()
+  loadFollowCount()
 })
 </script>
 
@@ -574,63 +470,163 @@ onMounted(() => {
 .member-view {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 12px;
+
+  :deep(.el-card) {
+    border: 1px solid rgba(244, 196, 48, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  }
+
+  .top-dashboard-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+    align-items: stretch;
+  }
 
   .member-header {
-    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-    color: white;
+    height: 100%;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #fff8ea 0%, #fff1db 50%, #ffe8d0 100%);
+    color: #5f370e;
+    border: 1px solid rgba(240, 160, 48, 0.16);
     border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
+    padding: 24px 16px;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      border-radius: 999px;
+      pointer-events: none;
+    }
+
+    &::before {
+      width: 220px;
+      height: 220px;
+      right: -70px;
+      top: -120px;
+      background: radial-gradient(circle, rgba(246, 211, 101, 0.34) 0%, rgba(246, 211, 101, 0) 70%);
+    }
+
+    &::after {
+      width: 180px;
+      height: 180px;
+      left: -60px;
+      bottom: -110px;
+      background: radial-gradient(circle, rgba(253, 160, 133, 0.22) 0%, rgba(253, 160, 133, 0) 72%);
+    }
 
     .member-info {
+      position: relative;
+      z-index: 1;
       display: flex;
       align-items: center;
-      gap: 20px;
-      margin-bottom: 16px;
+      gap: 10px;
+      margin-bottom: 12px;
+
+      :deep(.el-avatar) {
+        width: 42px !important;
+        height: 42px !important;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        box-shadow: 0 6px 12px rgba(240, 160, 48, 0.12);
+      }
 
       .info-right {
         h2 {
-          font-size: 22px;
-          margin-bottom: 10px;
+          font-size: 16px;
+          margin-bottom: 2px;
+          color: #4a2d0b;
         }
 
         .member-level {
           .el-tag {
-            font-size: 16px;
-            padding: 8px 16px;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
           }
         }
       }
     }
 
-    .member-stats {
+    .stats-card {
+      position: relative;
+      z-index: 1;
       display: flex;
       align-items: center;
       justify-content: space-around;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      padding: 20px;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 10px;
+      padding: 12px 8px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(240, 160, 48, 0.05);
 
       .stat-item {
+        flex: 1;
         text-align: center;
 
         .stat-value {
-          font-size: 24px;
-          font-weight: bold;
-          margin-bottom: 8px;
+          font-size: 18px;
+          font-weight: 800;
+          margin-bottom: 2px;
+          color: #7a4a12;
         }
 
         .stat-label {
-          font-size: 14px;
-          opacity: 0.9;
+          font-size: 12px;
+          color: rgba(95, 55, 14, 0.8);
         }
       }
+    }
 
-      .stat-divider {
-        width: 1px;
-        height: 40px;
-        background: rgba(255, 255, 255, 0.3);
+    .actions-card {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(240, 160, 48, 0.05);
+
+      .action-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: bold;
+        color: #7a4a12;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: rgba(255, 255, 255, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+
+        &:hover {
+          background: #fff;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(240, 160, 48, 0.15);
+        }
+
+        .el-icon {
+          font-size: 16px;
+          color: #f0a030;
+        }
       }
     }
   }
@@ -643,26 +639,31 @@ onMounted(() => {
     h3 {
       display: flex;
       align-items: center;
-      gap: 8px;
-      font-size: 18px;
+      gap: 4px;
+      font-size: 13px;
       font-weight: bold;
       margin: 0;
     }
 
     .next-level-hint {
-      font-size: 13px;
+      font-size: 12px;
       color: #909399;
     }
   }
 
   .vip-section {
-    margin-bottom: 24px;
-    border: 1px solid rgba(246, 211, 101, 0.3);
+    height: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0;
+    border: 1px solid rgba(246, 211, 101, 0.22);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 
     :deep(.el-card__header) {
       background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
       border-bottom: none;
+      padding: 8px 12px;
 
       .section-header h3 {
         color: #fff;
@@ -675,19 +676,29 @@ onMounted(() => {
       }
     }
 
+    :deep(.el-card__body) {
+      padding: 16px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
     .vip-banner {
-      border-radius: 12px;
-      padding: 24px 28px;
-      margin-bottom: 24px;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
       transition: all 0.3s;
+      border: 1px solid rgba(255, 255, 255, 0.4);
 
       &.vip-active {
-        background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+        background: linear-gradient(135deg, #f5c55d 0%, #f0a748 45%, #ee8b6f 100%);
         color: #fff;
+        box-shadow: 0 12px 24px rgba(240, 160, 48, 0.15);
       }
 
       &.vip-expired {
-        background: linear-gradient(135deg, #e8e8e8 0%, #f5f5f5 100%);
+        background: linear-gradient(135deg, #f6f2ea 0%, #fbfaf7 100%);
         color: #666;
       }
 
@@ -700,119 +711,137 @@ onMounted(() => {
       .vip-banner-left {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 8px;
       }
 
       .vip-icon-wrapper {
-        width: 64px;
-        height: 64px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
-        background: rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.24);
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .el-icon {
+          font-size: 15px !important;
+        }
       }
 
       .vip-banner-info {
         h3 {
-          font-size: 22px;
+          font-size: 14px;
           font-weight: bold;
-          margin: 0 0 6px 0;
+          margin: 0 0 2px 0;
         }
 
         p {
           margin: 0;
-          font-size: 14px;
-          opacity: 0.85;
+          font-size: 12px;
+          opacity: 0.9;
         }
       }
     }
 
     .vip-benefits-highlights {
       display: flex;
-      gap: 20px;
-      margin-bottom: 24px;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
 
       .benefit-highlight-item {
         flex: 1;
+        min-width: 0;
         display: flex;
         align-items: center;
-        gap: 14px;
-        padding: 18px 20px;
-        background: linear-gradient(135deg, rgba(246, 211, 101, 0.08) 0%, rgba(253, 160, 133, 0.08) 100%);
-        border-radius: 10px;
-        border: 1px solid rgba(246, 211, 101, 0.2);
+        gap: 6px;
+        padding: 6px 8px;
+        background: linear-gradient(135deg, rgba(246, 211, 101, 0.1) 0%, rgba(253, 160, 133, 0.08) 100%);
+        border-radius: 8px;
+        border: 1px solid rgba(246, 211, 101, 0.16);
         transition: all 0.3s;
 
         &:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 16px rgba(246, 211, 101, 0.2);
-          border-color: rgba(246, 211, 101, 0.4);
+          box-shadow: 0 4px 12px rgba(246, 211, 101, 0.15);
+          border-color: rgba(246, 211, 101, 0.3);
         }
 
         .benefit-highlight-icon {
-          width: 50px;
-          height: 50px;
-          border-radius: 12px;
-          background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, #f2bb54 0%, #ef9a55 100%);
           display: flex;
           align-items: center;
           justify-content: center;
           color: #fff;
           flex-shrink: 0;
+
+          .el-icon {
+            font-size: 14px !important;
+          }
         }
 
         .benefit-highlight-text {
+          min-width: 0;
           h4 {
-            font-size: 15px;
+            font-size: 12px;
             font-weight: 600;
             color: #333;
-            margin: 0 0 4px 0;
+            margin: 0 0 2px 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           p {
-            font-size: 13px;
-            color: #999;
+            font-size: 10px;
+            color: #8a8f99;
             margin: 0;
+            line-height: 1.4;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
         }
       }
     }
 
     .vip-upgrade-progress {
-      background: #fafafa;
-      border-radius: 10px;
-      padding: 20px 24px;
-      margin-bottom: 24px;
-      border: 1px solid #f0f0f0;
+      background: linear-gradient(180deg, #fffdf8 0%, #fff 100%);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid rgba(240, 160, 48, 0.1);
 
       .upgrade-progress-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 6px;
 
         .upgrade-title {
-          font-size: 15px;
+          font-size: 12px;
           font-weight: 600;
           color: #333;
         }
 
         .upgrade-count {
-          font-size: 14px;
+          font-size: 11px;
           color: #666;
 
           strong {
             color: #f0a030;
-            font-size: 18px;
+            font-size: 12px;
           }
         }
       }
 
       .upgrade-hint {
-        margin: 10px 0 0 0;
-        font-size: 13px;
+        margin: 4px 0 0 0;
+        font-size: 10px;
         color: #999;
 
         &.upgrade-done {
@@ -827,33 +856,29 @@ onMounted(() => {
 
     .vip-plans {
       .vip-plans-title {
-        font-size: 16px;
+        font-size: 13px;
         font-weight: 600;
         color: #333;
-        margin: 0 0 16px 0;
+        margin: 0 0 8px 0;
       }
 
-      .vip-plan-single {
-        display: flex;
-        justify-content: center;
-
-        .vip-plan-card {
-          max-width: 360px;
-          width: 100%;
-        }
+      .vip-plan-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
       }
 
       .vip-plan-card {
         text-align: center;
-        padding: 28px 20px;
+        padding: 10px 10px;
         border: 2px solid rgba(246, 211, 101, 0.3);
-        border-radius: 12px;
+        border-radius: 10px;
         background: linear-gradient(180deg, rgba(246, 211, 101, 0.04) 0%, #fff 100%);
         transition: all 0.3s;
 
         &:hover {
-          transform: translateY(-6px);
-          box-shadow: 0 8px 24px rgba(246, 211, 101, 0.25);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(246, 211, 101, 0.18);
           border-color: #f6d365;
         }
 
@@ -861,29 +886,29 @@ onMounted(() => {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          margin-bottom: 16px;
+          gap: 4px;
+          margin-bottom: 6px;
           color: #f0a030;
 
           .plan-name {
-            font-size: 18px;
+            font-size: 14px;
             font-weight: bold;
             color: #333;
           }
         }
 
         .plan-price {
-          margin-bottom: 8px;
+          margin-bottom: 4px;
 
           .price-symbol {
-            font-size: 18px;
+            font-size: 12px;
             font-weight: bold;
             color: #f0a030;
             vertical-align: super;
           }
 
           .price-value {
-            font-size: 36px;
+            font-size: 20px;
             font-weight: bold;
             color: #f0a030;
             line-height: 1;
@@ -891,148 +916,173 @@ onMounted(() => {
         }
 
         .plan-duration {
-          font-size: 14px;
+          font-size: 12px;
           color: #999;
-          margin-bottom: 14px;
+          margin-bottom: 6px;
         }
 
         .plan-description {
-          font-size: 13px;
+          font-size: 12px;
           color: #666;
-          margin: 0 0 14px 0;
-          line-height: 1.6;
+          margin: 0 0 6px 0;
+          line-height: 1.4;
         }
 
         .plan-benefits {
           text-align: left;
-          margin-bottom: 18px;
+          margin-bottom: 8px;
 
           .plan-benefit-item {
             display: flex;
             align-items: center;
-            gap: 6px;
-            font-size: 13px;
+            gap: 4px;
+            font-size: 12px;
             color: #666;
-            margin-bottom: 6px;
-
-            .el-icon {
-              color: #f0a030;
-              flex-shrink: 0;
-            }
+            margin-bottom: 4px;
           }
         }
 
         .plan-buy-btn {
           width: 100%;
-          font-size: 15px;
+          height: 30px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: 1px;
+          transition: all 0.3s;
+
+          &:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(240, 160, 48, 0.4);
+          }
         }
       }
     }
   }
 
-  .sign-in-section {
-    margin-bottom: 24px;
+  .points-add {
+    color: #67C23A;
+    font-weight: bold;
+  }
 
-    .sign-in-action {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+  .points-deduct {
+    color: #F56C6C;
+    font-weight: bold;
+  }
 
-      .signed-text {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        color: #67C23A;
-        font-weight: 500;
-      }
+  @media (max-width: 992px) {
+    .bento-container {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: auto;
+    }
+    .bento-card.tall {
+      grid-row: auto;
+      min-height: 180px;
+    }
+  }
 
-      .tip-icon {
-        cursor: pointer;
-        color: #909399;
-        font-size: 18px;
+  @media (max-width: 900px) {
+    .top-dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 768px) {
+    padding: 8px;
+
+    .bento-container {
+      grid-template-columns: 1fr;
+    }
+
+    .member-header {
+      padding: 10px;
+
+      .member-info {
+        align-items: flex-start;
       }
     }
 
-    .calendar-cell {
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-
-      .day-num {
-        font-size: 14px;
-      }
-
-      .sign-mark {
-        font-size: 11px;
-        color: #67C23A;
-        font-weight: bold;
-      }
-
-      &.signed {
-        background: rgba(103, 194, 58, 0.1);
-        border-radius: 4px;
-
-        .day-num {
-          color: #67C23A;
-          font-weight: bold;
+    .vip-section {
+      .vip-banner {
+        .vip-banner-content {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
         }
       }
     }
   }
-
-  .member-content {
-    margin-bottom: 24px;
-
-    .feature-card {
-      .card-header {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 18px;
-        font-weight: bold;
-
-        .header-icon {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
-
-      .card-content {
-        text-align: center;
-        padding: 20px 0;
-
-        p {
-          color: #666;
-          margin-bottom: 20px;
-        }
-      }
-    }
-  }
-
-  .points-log-section {
-    margin-bottom: 24px;
-
-    .points-add {
-      color: #67C23A;
-      font-weight: bold;
-    }
-
-    .points-deduct {
-      color: #F56C6C;
-      font-weight: bold;
-    }
-
-    .pagination {
-      display: flex;
-      justify-content: flex-end;
-      margin-top: 16px;
-    }
-  }
-
 }
+
+  :deep(.el-card) { border-radius: 12px !important; }
+  .master-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .grid-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 196, 48, 0.12);
+    padding: 16px 20px;
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.02);
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+  }
+  .grid-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px 0 rgba(0,0,0,0.06);
+  }
+  .grid-card-small {
+    grid-column: span 1;
+    gap: 16px;
+  }
+  .grid-card-full {
+    grid-column: span 1;
+    flex-direction: column;
+    align-items: stretch;
+    cursor: default;
+  }
+  .card-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .card-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .card-info h4 { margin: 0 0 4px 0; font-size: 15px; font-weight: bold; color: #303133; }
+  .card-info p { margin: 0; font-size: 12px; color: #909399; }
+  .card-action {
+    display: flex;
+    align-items: center;
+  }
+  .arrow-icon { color: #c0c4cc; font-size: 18px; }
+  .points-overview .points-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .points-overview .points-header h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 6px; color: #333; }
+  .points-list { display: flex; flex-direction: column; gap: 12px; }
+  .points-item { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #f0f2f5; }
+  .points-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .points-item-left { display: flex; flex-direction: column; gap: 4px; }
+  .points-desc { font-size: 14px; color: #303133; }
+  .points-time { font-size: 12px; color: #909399; }
+  .empty-points { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+  .vip-section { margin-bottom: 16px; border-radius: 12px; }
+  .vip-split-layout { gap: 16px; }
+  .vip-right.promo-box { border-radius: 12px; }
+  .member-header { border-radius: 12px; margin-bottom: 16px; }
+  @media (max-width: 768px) {
+    .grid-card-small { grid-column: span 1; }
+  }
+
 </style>

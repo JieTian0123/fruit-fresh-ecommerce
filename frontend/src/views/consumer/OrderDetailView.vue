@@ -33,12 +33,12 @@
         <h3><el-icon><Goods /></el-icon> 商品信息</h3>
         <div class="product-list">
           <div v-for="item in order.orderItems" :key="item.id" class="product-item">
-            <img :src="item.productImage" :alt="item.productName" class="product-image" />
+            <img :src="normalizeImageUrl(item.productImage, defaultImage)" :alt="item.productName" class="product-image" />
             <div class="product-info">
               <h4>{{ item.productName }}</h4>
-              <p class="price">¥{{ item.price?.toFixed(2) }} × {{ item.quantity }}</p>
+              <p class="price">¥{{ formatMoney(item.price) }} × {{ item.quantity }}</p>
             </div>
-            <div class="subtotal">¥{{ item.totalPrice?.toFixed(2) }}</div>
+            <div class="subtotal">¥{{ formatMoney(getItemSubtotal(item)) }}</div>
             <el-button
               v-if="order.status === 3"
               :type="item.reviewed ? 'info' : 'primary'"
@@ -62,11 +62,11 @@
           </div>
           <div class="info-item">
             <span class="label">下单时间</span>
-            <span class="value">{{ order.createTime }}</span>
+            <span class="value">{{ formatDateTime(order.createTime) }}</span>
           </div>
           <div class="info-item" v-if="order.payTime">
             <span class="label">支付时间</span>
-            <span class="value">{{ order.payTime }}</span>
+            <span class="value">{{ formatDateTime(order.payTime) }}</span>
           </div>
           <div class="info-item" v-if="order.remark">
             <span class="label">订单备注</span>
@@ -74,7 +74,7 @@
           </div>
           <div class="info-item total">
             <span class="label">订单金额</span>
-            <span class="value amount">¥{{ order.totalAmount?.toFixed(2) }}</span>
+            <span class="value amount">¥{{ formatMoney(order.totalAmount) }}</span>
           </div>
         </div>
       </div>
@@ -86,7 +86,7 @@
     <el-dialog v-model="reviewDialogVisible" title="商品评价" width="500px" :close-on-click-modal="false">
       <div class="review-dialog-content" v-if="currentReviewItem">
         <div class="review-product-info">
-          <img :src="currentReviewItem.productImage" class="review-product-image" />
+          <img :src="normalizeImageUrl(currentReviewItem.productImage, defaultImage)" class="review-product-image" />
           <span>{{ currentReviewItem.productName }}</span>
         </div>
         <el-form :model="reviewForm" label-position="top">
@@ -118,6 +118,8 @@ import { addReview, checkReviewed } from '@/api/review'
 import { OrderStatusText } from '@/types'
 import type { Order, ReviewDTO } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
+import { defaultImage, normalizeImageUrl } from '@/utils/image'
 
 const route = useRoute()
 const router = useRouter()
@@ -176,6 +178,19 @@ function getStatusDesc(status: number) {
     6: '退款已完成'
   }
   return descs[status] || ''
+}
+
+function toNumber(value: unknown) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatMoney(value: unknown) {
+  return toNumber(value).toFixed(2)
+}
+
+function getItemSubtotal(item: any) {
+  return item.totalPrice ?? item.totalAmount ?? toNumber(item.price) * toNumber(item.quantity)
 }
 
 async function loadOrder() {

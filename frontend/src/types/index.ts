@@ -44,6 +44,8 @@ export interface AdminLoginResponse {
 export interface LoginDTO {
   username: string
   password: string
+  captchaCode: string
+  captchaUuid: string
 }
 
 export interface RegisterDTO {
@@ -72,11 +74,14 @@ export interface Product {
   shopId?: number
   categoryId: number
   name: string
+  subtitle?: string
   description: string
+  detail?: string
   price: number
   stock: number
   unit: string
   images: string
+  subImages?: string
   status: number
   sales: number
   createTime: string
@@ -91,6 +96,7 @@ export interface Product {
   qualityGrade?: string       // 品质等级 A/B/C
   currentPrice?: number       // 动态折扣价（后端计算）
   discountLabel?: string      // 折扣标签（后端返回）
+  shopLogo?: string           // 店铺Logo（后端关联返回）
 }
 
 export interface ProductQuery {
@@ -100,6 +106,7 @@ export interface ProductQuery {
   maxPrice?: number
   sortBy?: 'price' | 'sales' | 'createTime' | string  // 扩展允许任意字符串
   sortOrder?: 'asc' | 'desc' | string  // 允许字符串类型
+  activity?: 'fresh-new' | 'near-expiry' | 'hot-sales' | string
   status?: number  // 商品状态筛选
   pageNum?: number
   pageSize?: number
@@ -108,6 +115,7 @@ export interface ProductQuery {
 // 分类相关类型
 export interface Category {
   id: number
+  parentId?: number
   name: string
   icon: string
   sort: number
@@ -171,6 +179,8 @@ export interface OrderItem {
   price: number
   quantity: number
   totalPrice: number
+  totalAmount?: number
+  reviewed?: boolean
 }
 
 export interface CreateOrderDTO {
@@ -252,9 +262,9 @@ export interface Coupon {
   receivedQuantity: number
   usedQuantity: number
   perUserLimit: number
-  validFrom?: string
-  validUntil?: string
-  validDays?: number
+  validFrom?: string | null
+  validUntil?: string | null
+  validDays?: number | null
   applicableCategories?: string
   applicableProducts?: string
   memberLevels?: string
@@ -262,6 +272,8 @@ export interface Coupon {
   status: number  // 0-禁用 1-启用 2-已结束
   createTime?: string
   updateTime?: string
+  pointsPrice?: number | null
+  vipFreeReceive?: number
 }
 
 // 公告类型
@@ -277,6 +289,22 @@ export interface Announcement {
   publishTime?: string
   createTime?: string
   updateTime?: string
+}
+
+// 首页固定活动
+export interface HomeActivity {
+  id?: number
+  code: 'DAILY_NEW' | 'NEW_TASTE' | 'FULL_REDUCTION' | string
+  title: string
+  subtitle?: string
+  badge?: string
+  actionText?: string
+  imageUrl: string
+  linkUrl: string
+  theme?: string
+  sort: number
+  status: number
+  createTime?: string
 }
 
 // 商家店铺类型

@@ -18,6 +18,12 @@ public interface ProductService extends IService<Product> {
     PageResult<Product> listForConsumer(Long categoryId, String keyword, String sortField, String sortOrder, Integer pageNum, Integer pageSize);
 
     /**
+     * 消费者商品列表
+     */
+    PageResult<Product> listForConsumer(Long categoryId, String keyword, String sortField, String sortOrder,
+                                        String activityType, Integer pageNum, Integer pageSize);
+
+    /**
      * 商家商品列表
      */
     PageResult<Product> listForMerchant(Long merchantId, Integer status, Integer pageNum, Integer pageSize);
@@ -26,6 +32,11 @@ public interface ProductService extends IService<Product> {
      * 管理员商品列表
      */
     PageResult<Product> listForAdmin(Integer status, String keyword, Integer pageNum, Integer pageSize);
+
+    /**
+     * 管理员商品列表
+     */
+    PageResult<Product> listForAdmin(Integer status, String keyword, Long categoryId, Integer pageNum, Integer pageSize);
 
     /**
      * 商家添加商品

@@ -91,7 +91,7 @@
             <div class="message-bubble">
               <div v-if="msg.senderId !== currentUserId" class="sender-name">{{ msg.senderName }}</div>
               <div class="message-content">{{ msg.content }}</div>
-              <div class="message-time">{{ msg.createTime }}</div>
+              <div class="message-time">{{ formatDateTime(msg.createTime) }}</div>
             </div>
             
             <el-avatar v-if="msg.senderId === currentUserId" :size="36">我</el-avatar>
@@ -127,6 +127,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead
 } from '@/api/message'
+import { formatDateTime } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()
@@ -163,7 +164,13 @@ function formatTime(time: string) {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
   
-  return time.substring(0, 16)
+  return formatDateTime(time).substring(0, 16)
+}
+
+function getNotificationOrderNo(notif: SystemNotification) {
+  const text = `${notif.title || ''} ${notif.content || ''}`
+  const match = text.match(/#\s*(\d{10,})/) || text.match(/订单[^\d]*(\d{10,})/)
+  return match?.[1]
 }
 
 async function loadConversations() {
@@ -185,21 +192,7 @@ async function loadNotifications() {
 }
 
 async function openChat(merchantId: number) {
-  currentMerchantId.value = merchantId
-  const conv = conversations.value.find(c => c.merchantId === merchantId)
-  currentMerchantName.value = conv?.shopName || conv?.merchantName || '商家'
-  
-  chatMessages.value = await getChatMessages(merchantId)
-  chatDrawerVisible.value = true
-  
-  // 标记为已读
-  if (conv) {
-    conv.unreadCount = 0
-  }
-  
-  // 滚动到底部
-  await nextTick()
-  scrollToBottom()
+  router.push(`/chat/${merchantId}`)
 }
 
 function scrollToBottom() {
@@ -244,9 +237,9 @@ async function handleNotificationClick(notif: SystemNotification) {
     }
   }
   
-  // 如果有关联订单，跳转到订单详情
-  if (notif.relatedId && notif.type === 'order') {
-    router.push(`/orders/${notif.relatedId}`)
+  if (notif.type === 'order') {
+    const orderNo = getNotificationOrderNo(notif)
+    router.push(orderNo ? `/order/${orderNo}` : '/orders')
   }
 }
 
@@ -269,20 +262,7 @@ onMounted(async () => {
   const merchantIdParam = route.query.merchantId
   if (merchantIdParam) {
     const merchantId = Number(merchantIdParam)
-    activeTab.value = 'chat'
-    // 先在已有会话中查找
-    const existing = conversations.value.find(c => c.merchantId === merchantId)
-    if (existing) {
-      openChat(merchantId)
-    } else {
-      // 不在列表中也直接打开（首次联系）
-      currentMerchantId.value = merchantId
-      currentMerchantName.value = '商家客服'
-      chatMessages.value = await getChatMessages(merchantId)
-      chatDrawerVisible.value = true
-      await nextTick()
-      scrollToBottom()
-    }
+    router.replace(`/chat/${merchantId}`)
   }
 })
 </script>

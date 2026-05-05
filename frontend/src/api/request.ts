@@ -37,11 +37,12 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const res = response.data
+    const silentError = (response.config as AxiosRequestConfig & { silentError?: boolean }).silentError === true
     
     // 业务状态码判断
     if (res.code !== 200) {
       // 登出期间抑制错误提示
-      if (!isLoggingOut) {
+      if (!isLoggingOut && !silentError) {
         ElMessage.error(res.message || '请求失败')
       }
       
@@ -74,8 +75,14 @@ service.interceptors.response.use(
     return res as any
   },
   (error) => {
-    console.error('Request error:', error)
+    const silentError = (error.config as AxiosRequestConfig & { silentError?: boolean } | undefined)?.silentError === true
     
+    if (silentError) {
+      return Promise.reject(error)
+    }
+
+    console.error('Request error:', error)
+
     if (error.response) {
       const status = error.response.status
       switch (status) {
@@ -125,7 +132,34 @@ function handleUnauthorized() {
   }
 }
 
-const request = service as any
+type SilentAxiosRequestConfig = AxiosRequestConfig & {
+  silentError?: boolean
+}
+
+type RequestInstance = {
+  request<T = any>(config: SilentAxiosRequestConfig): Promise<T>
+  get<T = any>(url: string, config?: SilentAxiosRequestConfig): Promise<T>
+  post<T = any>(url: string, data?: any, config?: SilentAxiosRequestConfig): Promise<T>
+  put<T = any>(url: string, data?: any, config?: SilentAxiosRequestConfig): Promise<T>
+  delete<T = any>(url: string, config?: SilentAxiosRequestConfig): Promise<T>
+}
+
+const request: RequestInstance = {
+  request(config) {
+    return service.request(config) as unknown as Promise<any>
+  },
+  get(url, config) {
+    return service.get(url, config) as unknown as Promise<any>
+  },
+  post(url, data, config) {
+    return service.post(url, data, config) as unknown as Promise<any>
+  },
+  put(url, data, config) {
+    return service.put(url, data, config) as unknown as Promise<any>
+  },
+  delete(url, config) {
+    return service.delete(url, config) as unknown as Promise<any>
+  }
+}
 
 export default request
-

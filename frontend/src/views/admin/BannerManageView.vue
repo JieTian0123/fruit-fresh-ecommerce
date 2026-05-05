@@ -2,7 +2,12 @@
   <div class="banner-manage-page">
     <div class="header">
       <h2>轮播图管理</h2>
-      <el-button type="primary" @click="handleAdd">添加轮播图</el-button>
+      <div class="header-actions">
+        <el-button type="danger" :disabled="selectedBanners.length === 0" @click="handleBatchDelete">
+          删除选中
+        </el-button>
+        <el-button type="primary" @click="handleAdd">添加轮播图</el-button>
+      </div>
     </div>
 
     <!-- 筛选区 -->
@@ -11,26 +16,46 @@
     </div>
 
     <!-- 轮播图表格 -->
-    <el-table :data="bannerList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="title" label="标题" min-width="150" />
-      <el-table-column label="图片" width="120">
+    <el-table
+      class="admin-data-table"
+      :data="bannerList"
+      v-loading="loading"
+      :fit="false"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="38" />
+      <el-table-column prop="id" label="ID" width="50" />
+      <el-table-column prop="title" label="标题" width="150" class-name="admin-ellipsis" show-overflow-tooltip />
+      <el-table-column label="图片" width="112" class-name="admin-media-column">
         <template #default="{ row }">
-          <el-image :src="row.imageUrl" style="width: 80px; height: 45px" fit="cover" :preview-src-list="[row.imageUrl]" />
+          <el-image
+            :src="row.imageUrl"
+            style="width: 80px; height: 45px"
+            fit="cover"
+            :preview-src-list="[row.imageUrl]"
+            preview-teleported
+            :z-index="5000"
+            @click.stop
+          />
         </template>
       </el-table-column>
-      <el-table-column prop="linkUrl" label="链接" min-width="200" show-overflow-tooltip />
-      <el-table-column prop="sort" label="排序" width="80" />
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="linkUrl" label="链接" width="180" class-name="admin-ellipsis" show-overflow-tooltip />
+      <el-table-column prop="sort" label="排序" width="62" />
+      <el-table-column label="状态" width="86" class-name="admin-tag-column">
         <template #default="{ row }">
           <el-switch :model-value="row.status === 1" @change="(val: boolean) => handleToggleStatus(row, val ? 1 : 0)" />
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="创建时间" width="168" class-name="admin-nowrap">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="112" class-name="admin-action-column">
         <template #default="{ row }">
-          <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+          <div class="admin-table-actions">
+            <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -78,9 +103,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import type { Banner } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
+import { batchDeleteSelected } from '@/utils/batchDelete'
 
 const loading = ref(false)
 const bannerList = ref<Banner[]>([])
+const selectedBanners = ref<Banner[]>([])
 const total = ref(0)
 const dialogVisible = ref(false)
 const submitLoading = ref(false)
@@ -141,6 +169,10 @@ function handleEdit(row: Banner) {
   dialogVisible.value = true
 }
 
+function handleSelectionChange(selection: Banner[]) {
+  selectedBanners.value = selection
+}
+
 async function handleSubmit() {
   submitLoading.value = true
   try {
@@ -169,6 +201,17 @@ async function handleDelete(row: Banner) {
     ElMessage.success('删除成功')
     loadBanners()
   } catch {}
+}
+
+async function handleBatchDelete() {
+  const { deleteBanner } = await import('@/api/admin')
+  await batchDeleteSelected({
+    items: selectedBanners.value,
+    label: '轮播图',
+    deleteOne: deleteBanner,
+    afterDelete: loadBanners
+  })
+  selectedBanners.value = []
 }
 
 async function handleToggleStatus(row: Banner, status: number) {
@@ -202,6 +245,11 @@ onMounted(() => {
 
 .header h2 {
   font-size: 18px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
 }
 
 .filter-bar {

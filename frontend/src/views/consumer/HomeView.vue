@@ -7,7 +7,7 @@
         <CategorySidebar />
       </div>
 
-      <!-- 中间：领券入口 + 每日上新 -->
+      <!-- 中间：领券入口 + 新鲜到店 -->
       <div class="grid-center">
         <div class="center-split">
           <!-- 领券中心固定入口 (2/3宽度) -->
@@ -40,69 +40,65 @@
             </div>
           </div>
 
-          <!-- 每日上新 (1/3宽度) -->
-          <div class="daily-fresh">
+          <!-- 新鲜到店 (1/3宽度) -->
+          <div class="daily-fresh activity-card" @click="goActivity(dailyActivity)">
             <div class="daily-header">
-              <span class="daily-title">每日上新</span>
-              <span class="daily-badge">热卖</span>
+              <span class="daily-title">{{ dailyActivity.title }}</span>
+              <span class="daily-badge">{{ dailyActivity.badge }}</span>
             </div>
-            <div class="daily-items">
-              <div 
-                v-for="item in dailyFresh" 
-                :key="item.id" 
-                class="daily-item"
-                @click="router.push(`/product/${item.productId}`)"
-              >
-                <img :src="item.image" :alt="item.name" class="daily-img" />
-                <div class="daily-info">
-                  <span class="daily-name">{{ item.name }}</span>
-                  <span class="daily-price">¥{{ item.price.toFixed(2) }}</span>
-                </div>
-                <span v-if="item.discount" class="daily-discount">-{{ item.discount }}%</span>
+            <div class="daily-activity-body">
+              <img
+                :src="resolveActivityImage(dailyActivity)"
+                :alt="dailyActivity.title"
+                class="daily-activity-img"
+                @error="handleActivityImageError"
+              />
+              <div class="daily-activity-info">
+                <span class="daily-name">{{ dailyActivity.subtitle }}</span>
+                <el-button type="success" size="small" class="daily-action-btn" round>
+                  {{ dailyActivity.actionText }}
+                </el-button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- 下方三个功能块：领券中心 + 新品尝鲜 + 全球进口 -->
+        <!-- 下方四个功能块：2x2网格 -->
         <div class="feature-blocks">
-          <div class="feature-block" @click="router.push('/coupons')">
+          <!-- 1. 临期特惠 -->
+          <div class="feature-block block-new" @click="goActivity(newTasteActivity)">
             <div class="feature-header">
-              <span class="feature-title">领券中心</span>
-              <el-icon class="feature-icon coupon"><Ticket /></el-icon>
+              <span class="feature-title">{{ newTasteActivity.title }}</span>
+              <span class="new-badge">{{ newTasteActivity.badge }}</span>
             </div>
             <div class="feature-content">
-              <div class="coupon-icon-wrapper">
-                <el-icon :size="28"><Coupon /></el-icon>
-              </div>
-              <span class="coupon-value">¥20 优惠券</span>
-            </div>
-          </div>
-
-          <div class="feature-block" @click="router.push('/category?tag=new')">
-            <div class="feature-header">
-              <span class="feature-title">新品尝鲜</span>
-              <span class="new-badge">NEW</span>
-            </div>
-            <div class="feature-content">
-              <img 
-                src="https://images.unsplash.com/photo-1568702846914-96b305d2uj67?w=80&h=80&fit=crop" 
-                alt="新品" 
+              <img
+                :src="resolveActivityImage(newTasteActivity)"
+                :alt="newTasteActivity.title"
                 class="new-product-img"
+                @error="handleActivityImageError"
               />
-              <span class="new-label">环球甄选</span>
+              <span class="block-value new-text">{{ newTasteActivity.subtitle }}</span>
             </div>
+            <el-button type="success" size="small" class="block-action-btn" round>{{ newTasteActivity.actionText }}</el-button>
           </div>
 
-          <div class="feature-block" @click="router.push('/category/3')">
+          <!-- 2. 热销榜单 -->
+          <div class="feature-block block-discount" @click="goActivity(fullReductionActivity)">
             <div class="feature-header">
-              <span class="feature-title">全球进口</span>
-              <el-icon class="feature-icon global"><Ship /></el-icon>
+              <span class="feature-title">{{ fullReductionActivity.title }}</span>
+              <el-icon class="feature-icon discount-icon"><Present /></el-icon>
             </div>
             <div class="feature-content">
-              <el-icon :size="32" class="global-icon"><LocationOn /></el-icon>
-              <span class="global-label">品质保证</span>
+              <img
+                :src="resolveActivityImage(fullReductionActivity)"
+                :alt="fullReductionActivity.title"
+                class="new-product-img"
+                @error="handleActivityImageError"
+              />
+              <span class="block-value discount-text">{{ fullReductionActivity.badge || fullReductionActivity.subtitle }}</span>
             </div>
+            <el-button type="warning" size="small" class="block-action-btn" round>{{ fullReductionActivity.actionText }}</el-button>
           </div>
         </div>
       </div>
@@ -147,7 +143,7 @@
       <div class="points-card" @click="handleSignIn">
         <div class="points-info">
           <span class="points-title">鲜果积分</span>
-          <span class="points-desc">100积分</span>
+          <span class="points-desc">每日签到领积分</span>
         </div>
         <el-button type="warning" size="small" round class="sign-btn" :disabled="signedToday">
           {{ signedToday ? '已签到' : '立即签到' }}
@@ -199,11 +195,18 @@ import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useUserStore } from '@/stores/user'
 import { getProductList } from '@/api/product'
+import { getHomeActivities } from '@/api/home'
 import { signIn as signInApi, getSignInStatus } from '@/api/points'
 import ProductCard from '@/components/ProductCard.vue'
 import CategorySidebar from '@/components/home/CategorySidebar.vue'
-import type { Product, ProductQuery } from '@/types'
+import type { Product, ProductQuery, HomeActivity } from '@/types'
 import { ElMessage } from 'element-plus'
+import {
+  DEFAULT_HOME_ACTIVITIES,
+  loadStoredHomeActivities,
+  mergeHomeActivities,
+  saveHomeActivities
+} from '@/utils/homeActivities'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -236,25 +239,57 @@ const pageNumber = ref(1)
 const hasMore = ref(true)
 const pageSize = 12
 
-// 每日上新数据
-const dailyFresh = [
-  {
-    id: 1,
-    productId: 101,
-    name: '丹东草莓',
-    price: 29.90,
-    image: 'https://images.unsplash.com/photo-1568702846914-96b305d2uj67?w=100&h=100&fit=crop',
-    discount: 20
-  },
-  {
-    id: 2,
-    productId: 102,
-    name: '有机香蕉',
-    price: 9.90,
-    image: 'https://images.unsplash.com/photo-1603833665858-e61d17a86224?w=100&h=100&fit=crop',
-    discount: null
+const defaultActivityImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="360" height="220" viewBox="0 0 360 220"><rect width="360" height="220" fill="#f0fdf4"/><circle cx="250" cy="70" r="52" fill="#bbf7d0"/><circle cx="130" cy="128" r="58" fill="#fed7aa"/><text x="180" y="122" text-anchor="middle" font-size="58">🍊</text></svg>')
+
+const homeActivities = ref<HomeActivity[]>(loadStoredHomeActivities())
+
+const activityMap = computed(() => {
+  const map = new Map<string, HomeActivity>()
+  DEFAULT_HOME_ACTIVITIES.forEach(activity => map.set(activity.code, activity))
+  homeActivities.value
+    .filter(activity => activity.status === 1)
+    .forEach(activity => {
+      const fallback = map.get(activity.code)
+      map.set(activity.code, { ...fallback, ...activity } as HomeActivity)
+    })
+  return map
+})
+
+const dailyActivity = computed<HomeActivity>(() => activityMap.value.get('DAILY_NEW') || (DEFAULT_HOME_ACTIVITIES[0] as HomeActivity))
+const newTasteActivity = computed<HomeActivity>(() => activityMap.value.get('NEW_TASTE') || (DEFAULT_HOME_ACTIVITIES[1] as HomeActivity))
+const fullReductionActivity = computed<HomeActivity>(() => activityMap.value.get('FULL_REDUCTION') || (DEFAULT_HOME_ACTIVITIES[2] as HomeActivity))
+
+function resolveActivityImage(activity: HomeActivity) {
+  if (!activity.imageUrl) return defaultActivityImage
+  return activity.imageUrl
+}
+
+function handleActivityImageError(e: Event) {
+  const img = e.target as HTMLImageElement
+  img.src = defaultActivityImage
+}
+
+function goActivity(activity: HomeActivity) {
+  if (!activity.linkUrl) return
+  if (/^https?:\/\//.test(activity.linkUrl)) {
+    window.open(activity.linkUrl, '_blank')
+    return
   }
-]
+  router.push(activity.linkUrl)
+}
+
+async function loadHomeActivities() {
+  homeActivities.value = loadStoredHomeActivities()
+  try {
+    const res = await getHomeActivities()
+    if (res.data?.length) {
+      homeActivities.value = mergeHomeActivities(res.data)
+      saveHomeActivities(homeActivities.value)
+    }
+  } catch {
+    homeActivities.value = loadStoredHomeActivities()
+  }
+}
 
 // 加载商品
 async function loadProducts(isInit = false) {
@@ -265,7 +300,7 @@ async function loadProducts(isInit = false) {
     const params: ProductQuery = {
       pageNum: pageNumber.value,
       pageSize: pageSize,
-      sortBy: 'sales',
+      sortBy: 'random',
       sortOrder: 'desc'
     }
 
@@ -322,14 +357,14 @@ async function handleSignIn() {
   try {
     const res = await signInApi()
     signedToday.value = true
-    const points = (res.data as any)?.pointsEarned
-    ElMessage.success(points ? `签到成功，获得${points}积分！` : '签到成功！')
+    ElMessage.success('签到成功！')
   } catch {
     // error already handled by interceptor
   }
 }
 
 onMounted(async () => {
+  loadHomeActivities()
   loadProducts(true)
   if (userStore.isLoggedIn) {
     try {
@@ -356,11 +391,23 @@ onMounted(async () => {
   gap: 12px;
   margin-bottom: 24px;
   align-items: stretch;
+  /* 去掉 min-height，或者设置固定的 height: 360px 以保证三栏强制同高 */
+  height: 340px;
 }
 
 .grid-left {
   border-radius: 12px;
   overflow: hidden;
+  height: 100%;
+  max-height: none; /* 去掉之前的 max-height 限制，让它跟随 stretch */
+  display: flex;
+  flex-direction: column;
+}
+/* 如果需要在 HomeView 中强制其内部撑满，可以利用 :deep(.category-sidebar) */
+.grid-left :deep(.category-sidebar) {
+  height: 100%;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .grid-center {
@@ -368,9 +415,11 @@ onMounted(async () => {
   flex-direction: column;
   gap: 10px;
   min-height: 0;
+  height: 100%;
+  overflow: visible;
 }
 
-/* 中间区域拆分：轮播图 + 每日上新 */
+/* 中间区域拆分：领券入口 + 新鲜到店 */
 .center-split {
   display: flex;
   gap: 12px;
@@ -393,6 +442,16 @@ onMounted(async () => {
   border: 1px solid #f0f0f0;
   display: flex;
   flex-direction: column;
+}
+
+.activity-card {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.activity-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px rgba(76, 175, 80, 0.16);
 }
 
 .daily-header {
@@ -421,6 +480,34 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.daily-activity-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.daily-activity-img {
+  width: 100%;
+  height: 104px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: #f8f9fa;
+}
+
+.daily-activity-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.daily-action-btn {
+  flex-shrink: 0;
 }
 
 .daily-item {
@@ -580,9 +667,9 @@ onMounted(async () => {
 /* 功能块区域 */
 .feature-blocks {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  align-items: stretch;
+  flex: 1; /* 让其在 center 中自动撑满剩余高度 */
 }
 
 .feature-block {
@@ -590,17 +677,19 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 10px 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid #f0f0f0;
+  border: 1px solid rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
   min-height: 96px;
+  overflow: hidden;
+  position: relative;
 }
 
 .feature-block:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
 }
 
 .feature-header {
@@ -611,8 +700,8 @@ onMounted(async () => {
 }
 
 .feature-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
+  font-size: 14px;
   color: #333;
 }
 
@@ -620,12 +709,13 @@ onMounted(async () => {
   font-size: 18px;
 }
 
-.feature-icon.coupon {
-  color: #ff4d4f;
-}
-
-.feature-icon.global {
-  color: #1890ff;
+.flash-badge {
+  font-size: 10px;
+  background: #ff4d4f;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
 }
 
 .new-badge {
@@ -634,61 +724,74 @@ onMounted(async () => {
   color: #1890ff;
   padding: 2px 6px;
   border-radius: 4px;
+  font-weight: bold;
 }
 
 .feature-content {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 4px 0;
+  justify-content: flex-start;
+  gap: 8px;
   flex: 1;
 }
 
-.coupon-icon-wrapper {
-  width: 40px;
-  height: 40px;
-  background: #fff0f0;
-  border-radius: 50%;
+.block-icon-wrapper {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ff4d4f;
 }
 
-.coupon-value {
-  font-size: 12px;
+.flash-icon { background: #fff0f0; color: #ff4d4f; }
+.group-bg { background: #fff0f6; color: #ff69b4; }
+.discount-bg { background: #fff7e6; color: #ff9800; }
+
+.block-value {
+  font-size: 13px;
   font-weight: 600;
-  color: #ff4d4f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.flash-text { color: #ff4d4f; }
+.group-text { color: #ff69b4; }
+.new-text { color: #52c41a; }
+.discount-text { color: #ff9800; }
 
 .new-product-img {
   width: 44px;
   height: 44px;
   border-radius: 8px;
   object-fit: cover;
+  background: #f8f9fa;
+  flex-shrink: 0;
 }
 
-.new-label {
-  font-size: 12px;
-  color: #1890ff;
+.block-action-btn {
+  align-self: flex-end;
+  margin-top: auto;
+  opacity: 0.9;
+  transition: opacity 0.2s;
 }
 
-.global-icon {
-  color: #1890ff;
+.feature-block:hover .block-action-btn {
+  opacity: 1;
 }
 
-.global-label {
-  font-size: 12px;
-  color: #1890ff;
-}
+.block-flash:hover { border-color: #ffccc7; }
+.block-group:hover { border-color: #ffd6e7; }
+.block-new:hover { border-color: #b7eb8f; }
+.block-discount:hover { border-color: #ffe58f; }
 
 /* 右侧用户卡片 */
 .grid-right {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  justify-content: space-between;
+  height: 100%;
 }
 
 .user-card {
@@ -936,6 +1039,7 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .top-grid-section {
     grid-template-columns: 1fr;
+    height: auto;
   }
   .grid-left {
     display: none;

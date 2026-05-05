@@ -121,16 +121,30 @@
         
         <el-form-item label="溯源记录">
           <div class="traceability-section">
-            <el-button type="primary" size="small" @click="showTraceDialog = true">
-              添加溯源节点
-            </el-button>
+            <div class="trace-toolbar">
+              <el-button type="primary" size="small" @click="showTraceDialog = true">
+                添加溯源节点
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                :disabled="selectedTraceIds.length === 0"
+                @click="handleBatchDeleteTrace"
+              >
+                删除选中
+              </el-button>
+            </div>
             
             <div class="trace-list" v-if="traceabilityList.length > 0">
               <div class="trace-item" v-for="item in traceabilityList" :key="item.id">
+                <el-checkbox
+                  :model-value="selectedTraceIds.includes(item.id)"
+                  @change="(checked: boolean) => toggleTraceSelection(item.id, checked)"
+                />
                 <div class="trace-item-info">
                   <el-tag size="small">{{ getNodeTypeText(item.nodeType) }}</el-tag>
                   <span class="trace-item-name">{{ item.nodeName }}</span>
-                  <span class="trace-item-time">{{ item.occurredTime }}</span>
+                  <span class="trace-item-time">{{ formatDateTime(item.occurredTime) }}</span>
                   <span v-if="item.location" class="trace-item-loc">📍{{ item.location }}</span>
                 </div>
                 <el-button type="danger" size="small" text @click="handleDeleteTrace(item.id)">
@@ -204,8 +218,10 @@ import { getCategoryList } from '@/api/product'
 import { addTraceability, deleteTraceability, getProductTraceabilityList } from '@/api/merchant'
 import type { Category } from '@/types'
 import type { FormInstance, FormRules, UploadFile } from 'element-plus'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/api/request'
+import { batchDeleteSelected } from '@/utils/batchDelete'
+import { formatDateTime } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -219,6 +235,7 @@ const imageList = ref<UploadFile[]>([])
 const mainImageError = ref(false)
 
 const traceabilityList = ref<any[]>([])
+const selectedTraceIds = ref<number[]>([])
 const showTraceDialog = ref(false)
 const traceSaving = ref(false)
 const traceForm = reactive({
@@ -368,8 +385,10 @@ async function loadTraceability() {
   try {
     const res = await getProductTraceabilityList(Number(route.params.id))
     traceabilityList.value = res.data || []
+    selectedTraceIds.value = []
   } catch {
     traceabilityList.value = []
+    selectedTraceIds.value = []
   }
 }
 
@@ -403,12 +422,33 @@ async function handleAddTrace() {
 
 async function handleDeleteTrace(id: number) {
   try {
+    await ElMessageBox.confirm('确定要删除该溯源记录吗？', '删除确认', { type: 'warning' })
     await deleteTraceability(id)
     ElMessage.success('删除成功')
     await loadTraceability()
   } catch {
     ElMessage.error('删除失败')
   }
+}
+
+function toggleTraceSelection(id: number, checked: string | number | boolean) {
+  const isChecked = Boolean(checked)
+  if (isChecked && !selectedTraceIds.value.includes(id)) {
+    selectedTraceIds.value.push(id)
+  }
+  if (!isChecked) {
+    selectedTraceIds.value = selectedTraceIds.value.filter(item => item !== id)
+  }
+}
+
+async function handleBatchDeleteTrace() {
+  const selected = traceabilityList.value.filter(item => selectedTraceIds.value.includes(item.id))
+  await batchDeleteSelected({
+    items: selected,
+    label: '溯源记录',
+    deleteOne: deleteTraceability,
+    afterDelete: loadTraceability
+  })
 }
 
 async function handleSubmit() {
@@ -502,6 +542,12 @@ onMounted(() => {
   width: 100%;
 }
 
+.trace-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .trace-list {
   margin-top: 12px;
   display: flex;
@@ -511,6 +557,7 @@ onMounted(() => {
 
 .trace-item {
   display: flex;
+  gap: 10px;
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;

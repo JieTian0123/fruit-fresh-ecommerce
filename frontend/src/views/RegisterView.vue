@@ -59,19 +59,6 @@
               />
             </el-form-item>
             
-            <el-form-item prop="role">
-              <el-radio-group v-model="formData.role" class="role-group">
-                <el-radio value="CONSUMER">
-                  <el-icon><User /></el-icon>
-                  我是消费者
-                </el-radio>
-                <el-radio value="MERCHANT">
-                  <el-icon><Shop /></el-icon>
-                  我是商家
-                </el-radio>
-              </el-radio-group>
-            </el-form-item>
-            
             <el-form-item>
               <el-button
                 type="primary"
@@ -110,7 +97,7 @@ const formData = reactive({
   phone: '',
   password: '',
   confirmPassword: '',
-  role: 'CONSUMER' as 'CONSUMER' | 'MERCHANT'
+  role: 'CONSUMER' as const
 })
 
 const validateConfirmPassword = (rule: any, value: string, callback: Function) => {
@@ -132,14 +119,12 @@ const rules: FormRules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度为6-20个字符', trigger: 'blur' }
+    { min: 8, max: 20, message: '密码长度为8-20个字符', trigger: 'blur' },
+    { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, message: '密码必须包含大小写字母和数字', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请确认密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
-  ],
-  role: [
-    { required: true, message: '请选择用户类型', trigger: 'change' }
   ]
 }
 
@@ -155,7 +140,7 @@ async function handleRegister() {
         username: formData.username,
         phone: formData.phone,
         password: formData.password,
-        role: formData.role
+        role: 'CONSUMER'
       })
       ElMessage.success('注册成功，请登录')
       router.push('/login')

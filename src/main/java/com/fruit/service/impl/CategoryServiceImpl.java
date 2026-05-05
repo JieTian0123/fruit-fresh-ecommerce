@@ -8,8 +8,10 @@ import com.fruit.common.result.PageResult;
 import com.fruit.common.result.ResultCode;
 import com.fruit.dto.CategoryDTO;
 import com.fruit.entity.Category;
+import com.fruit.entity.Product;
 import com.fruit.enums.StatusEnum;
 import com.fruit.mapper.CategoryMapper;
+import com.fruit.mapper.ProductMapper;
 import com.fruit.service.CategoryService;
 import com.fruit.vo.CategoryTreeVO;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> implements CategoryService {
+
+    private final ProductMapper productMapper;
 
     @Override
     public List<CategoryTreeVO> getCategoryTree() {
@@ -63,15 +67,31 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
 
         Page<Category> page = new Page<>(pageNum, pageSize);
         Page<Category> result = baseMapper.selectPage(page, wrapper);
+        fillProductCount(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
+    }
+
+    @Override
+    public List<Category> listEnabled() {
+        LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Category::getStatus, StatusEnum.ENABLED.getCode());
+        wrapper.orderByAsc(Category::getSort);
+        wrapper.orderByDesc(Category::getCreateTime);
+        return baseMapper.selectList(wrapper);
     }
 
     @Override
     public void addCategory(CategoryDTO dto) {
         Category category = new Category();
         BeanUtils.copyProperties(dto, category);
-        category.setStatus(StatusEnum.ENABLED.getCode());
+        if (category.getParentId() == null) {
+            category.setParentId(0L);
+        }
+        if (category.getSort() == null) {
+            category.setSort(0);
+        }
+        category.setStatus(dto.getStatus() == null ? StatusEnum.ENABLED.getCode() : dto.getStatus());
 
         baseMapper.insert(category);
     }
@@ -112,5 +132,16 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category> i
 
         category.setStatus(status);
         baseMapper.updateById(category);
+    }
+
+    private void fillProductCount(List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return;
+        }
+        for (Category category : categories) {
+            LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Product::getCategoryId, category.getId());
+            category.setProductCount(productMapper.selectCount(wrapper));
+        }
     }
 }

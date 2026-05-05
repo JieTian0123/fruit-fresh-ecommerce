@@ -259,3 +259,19 @@ INSERT INTO `banner` (`title`, `image_url`, `link_type`, `sort`) VALUES
 ('新鲜水果 每日上新', 'https://example.com/banner1.jpg', 2, 1),
 ('时令蔬菜 产地直供', 'https://example.com/banner2.jpg', 2, 2),
 ('新人专享 立减10元', 'https://example.com/banner3.jpg', 0, 3);
+
+-- ================================
+-- 关注店铺表
+-- ================================
+DROP TABLE IF EXISTS `shop_follow`;
+CREATE TABLE `shop_follow` (
+  `id` BIGINT(20) NOT NULL AUTO_INCREMENT COMMENT 'ID',
+  `user_id` BIGINT(20) NOT NULL COMMENT '用户ID',
+  `shop_id` BIGINT(20) NOT NULL COMMENT '店铺ID',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
+  `deleted` INT(1) DEFAULT 0 COMMENT '是否删除 0-否 1-是',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_shop` (`user_id`, `shop_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_shop_id` (`shop_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='关注店铺表';

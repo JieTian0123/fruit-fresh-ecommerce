@@ -1,6 +1,8 @@
 package com.fruit.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fruit.annotation.Sensitive;
+import com.fruit.annotation.SensitiveStrategy;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -34,16 +36,19 @@ public class Order {
     /**
      * 收货人姓名
      */
+    @Sensitive(strategy = SensitiveStrategy.NAME)
     private String receiverName;
 
     /**
      * 收货人电话
      */
+    @Sensitive(strategy = SensitiveStrategy.PHONE)
     private String receiverPhone;
 
     /**
      * 收货地址
      */
+    @Sensitive(strategy = SensitiveStrategy.ADDRESS)
     private String receiverAddress;
 
     /**
@@ -127,4 +132,10 @@ public class Order {
 
     @TableField(exist = false)
     private java.util.List<OrderItem> orderItems;
+
+    /**
+     * 商家名称（非数据库字段，用于展示）
+     */
+    @TableField(exist = false)
+    private String merchantName;
 }

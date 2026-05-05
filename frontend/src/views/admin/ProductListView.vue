@@ -2,6 +2,9 @@
   <div class="product-list-page">
     <div class="header">
       <h2>商品管理</h2>
+      <el-button type="danger" :disabled="selectedProducts.length === 0" @click="handleBatchDelete">
+        删除选中
+      </el-button>
     </div>
     
     <!-- 筛选区 -->
@@ -18,9 +21,16 @@
     </div>
     
     <!-- 商品表格 -->
-    <el-table :data="productList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column label="商品" min-width="280">
+    <el-table
+      class="admin-data-table"
+      :data="productList"
+      v-loading="loading"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="38" />
+      <el-table-column prop="id" label="ID" width="50" />
+      <el-table-column label="商品" min-width="210">
         <template #default="{ row }">
           <div class="product-cell">
             <img :src="row.mainImage" :alt="row.name" class="product-img" />
@@ -31,25 +41,32 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="merchantName" label="商家" width="120" />
-      <el-table-column prop="price" label="价格" width="100">
+      <el-table-column prop="merchantName" label="商家" min-width="120" class-name="admin-ellipsis" show-overflow-tooltip>
+        <template #default="{ row }">{{ row.merchantName || '-' }}</template>
+      </el-table-column>
+      <el-table-column prop="price" label="价格" width="82">
         <template #default="{ row }">¥{{ row.price?.toFixed(2) }}</template>
       </el-table-column>
-      <el-table-column prop="stock" label="库存" width="80" />
-      <el-table-column prop="sales" label="销量" width="80" />
-      <el-table-column prop="status" label="状态" width="80">
+      <el-table-column prop="stock" label="库存" width="62" />
+      <el-table-column prop="sales" label="销量" width="62" />
+      <el-table-column prop="status" label="状态" width="72">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'info'" size="small">
             {{ row.status === 1 ? '上架' : '下架' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="创建时间" width="168" class-name="admin-nowrap">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="172" class-name="admin-action-column">
         <template #default="{ row }">
-          <el-button text type="primary" @click="handleView(row)">查看</el-button>
-          <el-button v-if="row.status === 1" text type="warning" @click="handleToggleStatus(row, 0)">下架</el-button>
-          <el-button v-else text type="success" @click="handleToggleStatus(row, 1)">上架</el-button>
+          <div class="admin-table-actions">
+            <el-button text type="primary" @click="handleView(row)">查看</el-button>
+            <el-button v-if="row.status === 1" text type="warning" @click="handleToggleStatus(row, 0)">下架</el-button>
+            <el-button v-else text type="success" @click="handleToggleStatus(row, 1)">上架</el-button>
+            <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -88,7 +105,7 @@
                 {{ currentProduct.status === 1 ? '上架' : '下架' }}
               </el-tag>
             </el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ currentProduct.createTime }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ formatDateTime(currentProduct.createTime) }}</el-descriptions-item>
             <el-descriptions-item label="商品描述" :span="2">{{ currentProduct.description || '-' }}</el-descriptions-item>
           </el-descriptions>
         </div>
@@ -99,13 +116,16 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { getProductListForAdmin, approveProduct } from '@/api/admin'
+import { getProductListForAdmin, approveProduct, deleteProduct } from '@/api/admin'
 import { getCategoryList } from '@/api/product'
 import type { Product, Category } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
+import { batchDeleteSelected } from '@/utils/batchDelete'
 
 const loading = ref(false)
 const productList = ref<Product[]>([])
+const selectedProducts = ref<Product[]>([])
 const categoryList = ref<Category[]>([])
 const total = ref(0)
 const detailDrawerVisible = ref(false)
@@ -152,6 +172,10 @@ function handleView(product: Product) {
   detailDrawerVisible.value = true
 }
 
+function handleSelectionChange(selection: Product[]) {
+  selectedProducts.value = selection
+}
+
 async function handleToggleStatus(product: Product, status: number) {
   const action = status === 1 ? '上架' : '下架'
   try {
@@ -160,6 +184,25 @@ async function handleToggleStatus(product: Product, status: number) {
     ElMessage.success(`${action}成功`)
     loadProducts()
   } catch {}
+}
+
+async function handleDelete(product: Product) {
+  try {
+    await ElMessageBox.confirm(`确定删除商品「${product.name}」吗？`, '删除确认', { type: 'warning' })
+    await deleteProduct(product.id)
+    ElMessage.success('删除成功')
+    await loadProducts()
+  } catch {}
+}
+
+async function handleBatchDelete() {
+  await batchDeleteSelected({
+    items: selectedProducts.value,
+    label: '商品',
+    deleteOne: deleteProduct,
+    afterDelete: loadProducts
+  })
+  selectedProducts.value = []
 }
 
 onMounted(() => {
@@ -176,6 +219,9 @@ onMounted(() => {
 }
 
 .header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 24px;
 }
 
@@ -196,6 +242,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.product-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .product-img {
   width: 60px;
   height: 60px;
@@ -206,11 +257,19 @@ onMounted(() => {
 .product-info .name {
   font-weight: 500;
   margin-bottom: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-info .category {
   font-size: 12px;
   color: var(--color-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pagination {

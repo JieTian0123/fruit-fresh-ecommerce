@@ -34,6 +34,11 @@ export function getExchangeableCoupons(pageNum = 1, pageSize = 10) {
   })
 }
 
+// 获取当前用户优惠券获得方式
+export function getCouponAcquireTypes() {
+  return request.get<ApiResponse<Record<string, 'receive' | 'exchange'>>>('/coupon/acquire-types')
+}
+
 // 积分兑换优惠券
 export function exchangeCoupon(couponId: number) {
   return request.post<ApiResponse<any>>(`/coupon/exchange/${couponId}`)

@@ -15,4 +15,16 @@ public class LoginDTO {
 
     @NotBlank(message = "密码不能为空")
     private String password;
+
+    /**
+     * 验证码
+     */
+    @NotBlank(message = "验证码不能为空")
+    private String captchaCode;
+
+    /**
+     * 验证码UUID
+     */
+    @NotBlank(message = "验证码UUID不能为空")
+    private String captchaUuid;
 }

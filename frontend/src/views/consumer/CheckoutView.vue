@@ -10,12 +10,11 @@
       <div v-if="selectedAddress" class="selected-address">
         <div class="address-info">
           <span class="receiver">{{ selectedAddress.receiverName }}</span>
-          <span class="phone">{{ selectedAddress.receiverPhone }}</span>
+          <span class="phone">{{ maskPhone(selectedAddress.receiverPhone) }}</span>
           <el-tag v-if="selectedAddress.isDefault" size="small" type="success">默认</el-tag>
         </div>
         <p class="address-detail">
-          {{ selectedAddress.province }} {{ selectedAddress.city }} {{ selectedAddress.district }}
-          {{ selectedAddress.detailAddress }}
+          {{ getMaskedAddressText(selectedAddress) }}
         </p>
         <el-button type="primary" link @click="showAddressDialog = true">
           更换地址
@@ -38,7 +37,7 @@
       <div class="product-list">
         <div v-for="item in selectedItems" :key="item.id" class="product-item">
           <img
-            :src="item.product?.images?.split(',')[0] || item.productImage"
+            :src="getCheckoutProductImage(item)"
             :alt="item.product?.name || item.productName"
             class="product-image"
           />
@@ -48,7 +47,7 @@
           </div>
           <div class="product-price">
             <template v-if="isBuyNow">
-              <span class="price">¥{{ (item.product?.price || item.price || 0).toFixed(2) }}</span>
+              <span class="price">¥{{ formatMoney(getItemPrice(item)) }}</span>
               <el-input-number 
                 v-model="buyNowQuantity" 
                 :min="1" 
@@ -58,7 +57,7 @@
               />
             </template>
             <template v-else>
-              <span class="price">¥{{ (item.product?.price || item.price || 0).toFixed(2) }}</span>
+              <span class="price">¥{{ formatMoney(getItemPrice(item)) }}</span>
               <el-input-number
                 v-model="item.quantity"
                 :min="1"
@@ -70,7 +69,7 @@
             </template>
           </div>
           <div class="product-subtotal">
-            ¥{{ (((item.product?.price || item.price || 0)) * item.quantity).toFixed(2) }}
+             ¥{{ formatMoney(getItemPrice(item) * item.quantity) }}
           </div>
         </div>
       </div>
@@ -110,7 +109,16 @@
             @click="toggleCoupon(coupon.id)"
           >
             <div class="coupon-info">
-              <p class="coupon-title">优惠券 #{{ coupon.couponId }}</p>
+              <p class="coupon-title">{{ coupon.title || '优惠券' }}</p>
+              <p class="coupon-desc">
+                <template v-if="coupon.couponType === 2">
+                  {{ (coupon.discountRate * 10).toFixed(1) }}折
+                </template>
+                <template v-else>
+                  减¥{{ coupon.discountAmount }}
+                </template>
+                <span v-if="coupon.minimumAmount"> | 满{{ coupon.minimumAmount }}可用</span>
+              </p>
               <p class="coupon-expire">有效期至 {{ coupon.validUntil?.substring(0, 10) }}</p>
             </div>
             <el-icon v-if="selectedCouponId === coupon.id" class="check-icon"><CircleCheck /></el-icon>
@@ -133,7 +141,8 @@
         <span>共 {{ selectedItems.length }} 件商品，</span>
         <span v-if="selectedCouponId" class="discount-info">已使用优惠券，</span>
         <span>合计：</span>
-        <span class="total-amount">¥{{ totalAmount.toFixed(2) }}</span>
+        <span v-if="couponDiscountAmount > 0" class="discount-text">已优惠 ¥{{ couponDiscountAmount.toFixed(2) }}，</span>
+        <span class="total-amount">¥{{ payableAmount.toFixed(2) }}</span>
       </div>
       <el-button
         type="primary"
@@ -158,11 +167,11 @@
         >
           <div class="address-info">
             <span class="receiver">{{ addr.receiverName }}</span>
-            <span class="phone">{{ addr.receiverPhone }}</span>
+            <span class="phone">{{ maskPhone(addr.receiverPhone) }}</span>
             <el-tag v-if="addr.isDefault" size="small" type="success">默认</el-tag>
           </div>
           <p class="address-detail">
-            {{ addr.province }} {{ addr.city }} {{ addr.district }} {{ addr.detailAddress }}
+            {{ getMaskedAddressText(addr) }}
           </p>
         </div>
         <el-empty v-if="addressList.length === 0" description="暂无收货地址" />
@@ -208,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { getAddressList, addAddress } from '@/api/address'
@@ -218,6 +227,7 @@ import { getUsableCoupons } from '@/api/coupon'
 import type { Address, Product } from '@/types'
 import { ElMessage } from 'element-plus'
 import { regionData, codeToText } from 'element-china-area-data'
+import { defaultImage, getProductImage, normalizeImageUrl } from '@/utils/image'
 
 const route = useRoute()
 const router = useRouter()
@@ -248,6 +258,14 @@ const newAddressForm = ref({
 
 const newAddressRegion = ref<string[]>([])
 
+function maskPhone(phone: string) {
+  return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')
+}
+
+function getMaskedAddressText(address: Address) {
+  return [address.province, address.city, address.district].filter(Boolean).join(' ')
+}
+
 function handleNewAddressRegionChange(value: string[]) {
   if (value && value.length === 3) {
     newAddressForm.value.province = (codeToText as Record<string, string>)[value[0]!] || ''
@@ -277,7 +295,7 @@ const selectedItems = computed(() => {
       product: buyNowProduct.value,
       // 添加扁平字段以满足 CartItem 类型
       productName: buyNowProduct.value.name,
-      productImage: buyNowProduct.value.images?.split(',')[0],
+      productImage: getProductImage(buyNowProduct.value),
       price: buyNowProduct.value.price,
       stock: buyNowProduct.value.stock
     }]
@@ -287,10 +305,63 @@ const selectedItems = computed(() => {
 
 const totalAmount = computed(() => {
   if (isBuyNow.value && buyNowProduct.value) {
-    return (buyNowProduct.value.price || 0) * buyNowQuantity.value
+    return toNumber(buyNowProduct.value.price) * buyNowQuantity.value
   }
   return cartStore.totalAmount
 })
+
+const selectedCoupon = computed(() => {
+  if (!selectedCouponId.value) {
+    return null
+  }
+  return usableCoupons.value.find(coupon => coupon.id === selectedCouponId.value) || null
+})
+
+const couponDiscountAmount = computed(() => {
+  const coupon = selectedCoupon.value
+  const rawTotal = totalAmount.value
+
+  if (!coupon || rawTotal <= 0) {
+    return 0
+  }
+
+  if (coupon.couponType === 2) {
+    const discountRate = Number(coupon.discountRate || 0)
+    let discount = rawTotal - rawTotal * discountRate
+    const maxDiscount = Number(coupon.maximumDiscount || 0)
+    if (maxDiscount > 0) {
+      discount = Math.min(discount, maxDiscount)
+    }
+    return Math.max(0, Math.min(discount, rawTotal))
+  }
+
+  const discountAmount = Number(coupon.discountAmount || 0)
+  return Math.max(0, Math.min(discountAmount, rawTotal))
+})
+
+const payableAmount = computed(() => {
+  return Math.max(0, totalAmount.value - couponDiscountAmount.value)
+})
+
+function toNumber(value: unknown) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatMoney(value: unknown) {
+  return toNumber(value).toFixed(2)
+}
+
+function getItemPrice(item: any) {
+  return toNumber(item.product?.price ?? item.price)
+}
+
+function getCheckoutProductImage(item: any) {
+  if (item.product) {
+    return getProductImage(item.product)
+  }
+  return normalizeImageUrl(item.productImage, defaultImage)
+}
 
 async function loadAddresses() {
   try {
@@ -325,13 +396,32 @@ async function updateCartQuantity(id: number, quantity: number) {
 async function loadUsableCoupons() {
   try {
     const amount = totalAmount.value
-    if (amount <= 0) return
+    if (amount <= 0) {
+      usableCoupons.value = []
+      selectedCouponId.value = null
+      return
+    }
     const res = await getUsableCoupons(amount)
     usableCoupons.value = res.data || []
+
+    if (selectedCouponId.value) {
+      const selectedCoupon = usableCoupons.value.find(coupon => coupon.id === selectedCouponId.value)
+      if (!selectedCoupon) {
+        selectedCouponId.value = null
+        ElMessage.info('当前优惠券不满足使用门槛，已自动取消')
+      }
+    }
   } catch {
     usableCoupons.value = []
   }
 }
+
+watch(totalAmount, async (amount, previousAmount) => {
+  if (amount === previousAmount) {
+    return
+  }
+  await loadUsableCoupons()
+})
 // 保存新建地址
 async function handleSaveNewAddress() {
   const form = newAddressForm.value
@@ -653,6 +743,12 @@ onMounted(async () => {
   margin-bottom: 4px;
 }
 
+.coupon-desc {
+  font-size: 13px;
+  color: var(--color-secondary);
+  margin-bottom: 4px;
+}
+
 .coupon-expire {
   font-size: 12px;
   color: var(--color-text-light);
@@ -669,6 +765,11 @@ onMounted(async () => {
 }
 
 .discount-info {
+  color: var(--color-secondary);
+  font-weight: 500;
+}
+
+.discount-text {
   color: var(--color-secondary);
   font-weight: 500;
 }

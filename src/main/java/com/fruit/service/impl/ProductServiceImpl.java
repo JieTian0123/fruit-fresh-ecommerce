@@ -7,9 +7,11 @@ import com.fruit.common.exception.BusinessException;
 import com.fruit.common.result.PageResult;
 import com.fruit.common.result.ResultCode;
 import com.fruit.dto.ProductDTO;
+import com.fruit.entity.Category;
 import com.fruit.entity.MerchantShop;
 import com.fruit.entity.Product;
 import com.fruit.enums.StatusEnum;
+import com.fruit.mapper.CategoryMapper;
 import com.fruit.mapper.MerchantShopMapper;
 import com.fruit.mapper.ProductMapper;
 import com.fruit.service.ProductService;
@@ -22,7 +24,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 商品服务实现类
@@ -32,10 +40,17 @@ import java.util.List;
 public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> implements ProductService {
 
     private final MerchantShopMapper merchantShopMapper;
+    private final CategoryMapper categoryMapper;
 
     @Override
     public PageResult<Product> listForConsumer(Long categoryId, String keyword, String sortField, 
                                                 String sortOrder, Integer pageNum, Integer pageSize) {
+        return listForConsumer(categoryId, keyword, sortField, sortOrder, null, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<Product> listForConsumer(Long categoryId, String keyword, String sortField,
+                                                String sortOrder, String activityType, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Product::getStatus, StatusEnum.ENABLED.getCode());
 
@@ -48,8 +63,19 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                     .or().like(Product::getSubtitle, keyword));
         }
 
+        applyActivityFilter(wrapper, activityType);
+
         // 排序
-        if ("price".equals(sortField)) {
+        if ("near-expiry".equals(activityType)) {
+            wrapper.orderByAsc(Product::getProductionDate);
+            wrapper.orderByDesc(Product::getSales);
+        } else if ("hot-sales".equals(activityType)) {
+            wrapper.orderByDesc(Product::getSales);
+            wrapper.orderByDesc(Product::getCreateTime);
+        } else if ("fresh-new".equals(activityType)) {
+            wrapper.orderByDesc(Product::getProductionDate);
+            wrapper.orderByDesc(Product::getCreateTime);
+        } else if ("price".equals(sortField)) {
             if ("asc".equals(sortOrder)) {
                 wrapper.orderByAsc(Product::getPrice);
             } else {
@@ -57,15 +83,35 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             }
         } else if ("sales".equals(sortField)) {
             wrapper.orderByDesc(Product::getSales);
+        } else if ("random".equals(sortField)) {
+            wrapper.last("ORDER BY RAND()");
         } else {
             wrapper.orderByDesc(Product::getCreateTime);
         }
 
         Page<Product> page = new Page<>(pageNum, pageSize);
         Page<Product> result = baseMapper.selectPage(page, wrapper);
-        result.getRecords().forEach(this::calculateFreshness);
+        enrichProducts(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
+    }
+
+    private void applyActivityFilter(LambdaQueryWrapper<Product> wrapper, String activityType) {
+        if (!StringUtils.isNotBlank(activityType)) {
+            return;
+        }
+        if ("near-expiry".equals(activityType)) {
+            wrapper.isNotNull(Product::getShelfLifeDays)
+                    .isNotNull(Product::getProductionDate)
+                    .gt(Product::getShelfLifeDays, 0)
+                    .apply("DATEDIFF(CURDATE(), production_date) >= shelf_life_days / 2")
+                    .apply("DATEDIFF(CURDATE(), production_date) < shelf_life_days");
+        } else if ("fresh-new".equals(activityType)) {
+            wrapper.isNotNull(Product::getShelfLifeDays)
+                    .isNotNull(Product::getProductionDate)
+                    .gt(Product::getShelfLifeDays, 0)
+                    .apply("DATEDIFF(CURDATE(), production_date) BETWEEN 0 AND 2");
+        }
     }
 
     @Override
@@ -81,17 +127,26 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
         Page<Product> page = new Page<>(pageNum, pageSize);
         Page<Product> result = baseMapper.selectPage(page, wrapper);
-        result.getRecords().forEach(this::calculateFreshness);
+        enrichProducts(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
     }
 
     @Override
     public PageResult<Product> listForAdmin(Integer status, String keyword, Integer pageNum, Integer pageSize) {
+        return listForAdmin(status, keyword, null, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<Product> listForAdmin(Integer status, String keyword, Long categoryId, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
 
         if (status != null) {
             wrapper.eq(Product::getStatus, status);
+        }
+
+        if (categoryId != null) {
+            wrapper.eq(Product::getCategoryId, categoryId);
         }
 
         if (StringUtils.isNotBlank(keyword)) {
@@ -102,7 +157,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
 
         Page<Product> page = new Page<>(pageNum, pageSize);
         Page<Product> result = baseMapper.selectPage(page, wrapper);
-        result.getRecords().forEach(this::calculateFreshness);
+        enrichProducts(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
     }
@@ -181,7 +236,7 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 .orderByDesc(Product::getSales)
                 .last("LIMIT " + limit);
         List<Product> list = baseMapper.selectList(wrapper);
-        list.forEach(this::calculateFreshness);
+        enrichProducts(list);
         return list;
     }
 
@@ -192,19 +247,18 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
                 .orderByDesc(Product::getCreateTime)
                 .last("LIMIT " + limit);
         List<Product> list = baseMapper.selectList(wrapper);
-        list.forEach(this::calculateFreshness);
+        enrichProducts(list);
         return list;
     }
 
     @Override
     public List<Product> getRecommendProducts(Integer limit) {
-        // 推荐商品：随机选取上架商品
+        int safeLimit = Math.max(1, Math.min(limit == null ? 8 : limit, 50));
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Product::getStatus, StatusEnum.ENABLED.getCode())
-                .orderByDesc(Product::getSales)
-                .last("LIMIT " + limit);
+                .last("ORDER BY RAND() LIMIT " + safeLimit);
         List<Product> list = baseMapper.selectList(wrapper);
-        list.forEach(this::calculateFreshness);
+        enrichProducts(list);
         return list;
     }
 
@@ -214,16 +268,82 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
         if (product == null) {
             return null;
         }
-        calculateFreshness(product);
-        // 关联查询店铺名称
-        if (product.getShopId() != null) {
-            MerchantShop shop = merchantShopMapper.selectById(product.getShopId());
+        enrichProducts(Collections.singletonList(product));
+        return product;
+    }
+
+    private void enrichProducts(List<Product> products) {
+        if (products == null || products.isEmpty()) {
+            return;
+        }
+
+        products.forEach(this::calculateFreshness);
+        fillCategoryNames(products);
+        fillMerchantNames(products);
+    }
+
+    private void fillCategoryNames(List<Product> products) {
+        Set<Long> categoryIds = products.stream()
+                .map(Product::getCategoryId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (categoryIds.isEmpty()) {
+            return;
+        }
+
+        List<Category> categories = categoryMapper.selectBatchIds(categoryIds);
+        if (categories == null || categories.isEmpty()) {
+            return;
+        }
+
+        Map<Long, String> categoryNameMap = categories.stream()
+                .collect(Collectors.toMap(Category::getId, Category::getName, (left, right) -> left));
+        products.forEach(product -> product.setCategoryName(categoryNameMap.get(product.getCategoryId())));
+    }
+
+    private void fillMerchantNames(List<Product> products) {
+        Map<Long, MerchantShop> shopById = new HashMap<>();
+        Set<Long> shopIds = products.stream()
+                .map(Product::getShopId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!shopIds.isEmpty()) {
+            List<MerchantShop> shops = merchantShopMapper.selectBatchIds(shopIds);
+            if (shops != null) {
+                shopById.putAll(shops.stream()
+                        .collect(Collectors.toMap(MerchantShop::getId, shop -> shop, (left, right) -> left)));
+            }
+        }
+
+        Set<Long> merchantIds = products.stream()
+                .filter(product -> product.getShopId() == null || !shopById.containsKey(product.getShopId()))
+                .map(Product::getMerchantId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, MerchantShop> shopByMerchantId = new HashMap<>();
+        if (!merchantIds.isEmpty()) {
+            LambdaQueryWrapper<MerchantShop> wrapper = new LambdaQueryWrapper<>();
+            wrapper.in(MerchantShop::getMerchantId, merchantIds);
+            List<MerchantShop> shops = merchantShopMapper.selectList(wrapper);
+            if (shops != null) {
+                shopByMerchantId.putAll(shops.stream()
+                        .collect(Collectors.toMap(MerchantShop::getMerchantId, shop -> shop, (left, right) -> left)));
+            }
+        }
+
+        for (Product product : products) {
+            MerchantShop shop = product.getShopId() == null ? null : shopById.get(product.getShopId());
+            if (shop == null && product.getMerchantId() != null) {
+                shop = shopByMerchantId.get(product.getMerchantId());
+            }
             if (shop != null) {
                 product.setMerchantName(shop.getShopName());
                 product.setShopLogo(shop.getLogo());
+                if (product.getShopId() == null) {
+                    product.setShopId(shop.getId());
+                }
             }
         }
-        return product;
     }
 
     /**
@@ -260,8 +380,9 @@ public class ProductServiceImpl extends ServiceImpl<ProductMapper, Product> impl
             discount = new BigDecimal("0.5");
             label = "日落促销5折";
         } else {
+            // 已过期商品
             discount = new BigDecimal("0.3");
-            label = "即将过期3折";
+            label = "已过期";
         }
 
         product.setCurrentPrice(product.getPrice().multiply(discount).setScale(2, RoundingMode.HALF_UP));

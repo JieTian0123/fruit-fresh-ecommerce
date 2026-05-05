@@ -26,30 +26,39 @@
     </div>
     
     <!-- 订单表格 -->
-    <el-table :data="orderList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="orderNo" label="订单号" width="180" />
-      <el-table-column label="商品" min-width="250">
+    <el-table class="admin-data-table" :data="orderList" v-loading="loading" style="width: 100%">
+      <el-table-column prop="orderNo" label="订单号" width="210" class-name="admin-nowrap" show-overflow-tooltip />
+      <el-table-column label="商品" min-width="240" class-name="admin-ellipsis" show-overflow-tooltip>
         <template #default="{ row }">
           <div class="product-preview">
-            <img v-if="row.items?.[0]" :src="row.items[0].productImage" class="product-img" />
-            <span>{{ row.items?.[0]?.productName || '-' }}</span>
+            <img
+              v-if="row.items?.[0]"
+              :src="normalizeImageUrl(row.items[0].productImage, defaultImage)"
+              class="product-img"
+              @error="(e: Event) => (e.target as HTMLImageElement).src = defaultImage"
+            />
+            <span class="product-name">{{ row.items?.[0]?.productName || '-' }}</span>
             <span v-if="row.items?.length > 1" class="more">等{{ row.items.length }}件</span>
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="totalAmount" label="金额" width="120">
-        <template #default="{ row }">¥{{ row.totalAmount?.toFixed(2) }}</template>
+      <el-table-column prop="totalAmount" label="金额" width="86">
+        <template #default="{ row }">¥{{ formatMoney(row.totalAmount) }}</template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="status" label="状态" width="86">
         <template #default="{ row }">
           <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="下单时间" width="160" />
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="下单时间" width="168" class-name="admin-nowrap">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="118" class-name="admin-action-column">
         <template #default="{ row }">
-          <el-button text type="primary" @click="handleView(row)">查看</el-button>
-          <el-button v-if="row.status === 1" text type="success" @click="handleShip(row)">发货</el-button>
+          <div class="admin-table-actions">
+            <el-button text type="primary" @click="handleView(row)">查看</el-button>
+            <el-button v-if="row.status === 1" text type="success" @click="handleShip(row)">发货</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -96,8 +105,8 @@
             <h4>基本信息</h4>
             <p><span>订单号：</span>{{ currentOrder.orderNo }}</p>
             <p><span>状态：</span><el-tag :type="getStatusType(currentOrder.status)">{{ getStatusText(currentOrder.status) }}</el-tag></p>
-            <p><span>下单时间：</span>{{ currentOrder.createTime }}</p>
-            <p v-if="currentOrder.payTime"><span>支付时间：</span>{{ currentOrder.payTime }}</p>
+            <p><span>下单时间：</span>{{ formatDateTime(currentOrder.createTime) }}</p>
+            <p v-if="currentOrder.payTime"><span>支付时间：</span>{{ formatDateTime(currentOrder.payTime) }}</p>
           </div>
           
           <div class="section" v-if="currentOrder.address">
@@ -108,18 +117,18 @@
           
           <div class="section">
             <h4>商品信息</h4>
-            <div v-for="item in currentOrder.items" :key="item.id" class="item-row">
-              <img :src="item.productImage" class="item-img" />
+            <div v-for="item in detailItems" :key="item.id" class="item-row">
+              <img :src="normalizeImageUrl(item.productImage, defaultImage)" class="item-img" @error="(e: Event) => (e.target as HTMLImageElement).src = defaultImage" />
               <div class="item-info">
                 <p>{{ item.productName }}</p>
-                <p class="price">¥{{ item.price?.toFixed(2) }} × {{ item.quantity }}</p>
+                <p class="price">¥{{ formatMoney(item.price) }} × {{ item.quantity }}</p>
               </div>
-              <div class="subtotal">¥{{ item.totalPrice?.toFixed(2) }}</div>
+              <div class="subtotal">¥{{ formatMoney(getItemSubtotal(item)) }}</div>
             </div>
           </div>
           
           <div class="section total-section">
-            <p><span>订单金额：</span><strong>¥{{ currentOrder.totalAmount?.toFixed(2) }}</strong></p>
+            <p><span>订单金额：</span><strong>¥{{ formatMoney(currentOrder.totalAmount) }}</strong></p>
           </div>
         </div>
       </template>
@@ -128,12 +137,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { getMerchantOrderList } from '@/api/merchant'
 import { shipOrder } from '@/api/order'
 import { OrderStatusText } from '@/types'
 import type { Order } from '@/types'
 import { ElMessage } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
+import { defaultImage, normalizeImageUrl } from '@/utils/image'
 
 const loading = ref(false)
 const shipping = ref(false)
@@ -157,6 +168,8 @@ const shipForm = reactive({
   deliveryNo: ''
 })
 
+const detailItems = computed(() => currentOrder.value?.items || currentOrder.value?.orderItems || [])
+
 function getStatusText(status: number) {
   return OrderStatusText[status] || '未知'
 }
@@ -177,7 +190,11 @@ async function loadOrders() {
       pageNum: query.page,
       pageSize: query.size
     })
-    orderList.value = res.data?.list || res.data?.records || []
+    const records = res.data?.list || res.data?.records || []
+    orderList.value = records.map(order => ({
+      ...order,
+      items: order.items || order.orderItems || []
+    }))
     total.value = res.data?.total || 0
   } catch {
     orderList.value = []
@@ -196,6 +213,19 @@ function handleShip(order: Order) {
   shipForm.deliveryCompany = ''
   shipForm.deliveryNo = ''
   shipDialogVisible.value = true
+}
+
+function toNumber(value: unknown) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : 0
+}
+
+function formatMoney(value: unknown) {
+  return toNumber(value).toFixed(2)
+}
+
+function getItemSubtotal(item: any) {
+  return item.totalPrice ?? item.totalAmount ?? toNumber(item.price) * toNumber(item.quantity)
 }
 
 async function confirmShip() {
@@ -250,6 +280,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.product-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-img {

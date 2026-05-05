@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '商品分类' }
       },
       {
+        path: 'activity/:code',
+        name: 'ActivityProducts',
+        component: () => import('@/views/consumer/ActivityProductsView.vue'),
+        meta: { title: '首页活动' }
+      },
+      {
         path: 'product/:id',
         name: 'ProductDetail',
         component: () => import('@/views/consumer/ProductDetailView.vue'),
@@ -81,10 +87,34 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '我的消息', requireAuth: true }
       },
       {
+        path: 'chat/:merchantId',
+        name: 'Chat',
+        component: () => import('@/views/consumer/ChatView.vue'),
+        meta: { title: '联系客服', requireAuth: true }
+      },
+      {
         path: 'member',
         name: 'Member',
         component: () => import('@/views/consumer/MemberView.vue'),
         meta: { title: '会员中心', requireAuth: true }
+      },
+      {
+        path: 'member/sign-in',
+        name: 'SignInCalendar',
+        component: () => import('@/views/consumer/SignInCalendarView.vue'),
+        meta: { title: '签到日历', requireAuth: true }
+      },
+      {
+        path: 'member/vip',
+        name: 'VipCenter',
+        component: () => import('@/views/consumer/VipCenterView.vue'),
+        meta: { title: 'VIP会员特权中心', requireAuth: true }
+      },
+      {
+        path: 'member/points-log',
+        name: 'PointsLog',
+        component: () => import('@/views/consumer/PointsLogView.vue'),
+        meta: { title: '积分记录', requireAuth: true }
       },
       {
         path: 'coupons',
@@ -239,6 +269,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AdminCoupons',
         component: () => import('@/views/admin/CouponManageView.vue'),
         meta: { title: '优惠券管理' }
+      },
+      {
+        path: 'activities',
+        name: 'AdminActivities',
+        component: () => import('@/views/admin/HomeActivityManageView.vue'),
+        meta: { title: '首页活动管理' }
       },
       {
         path: 'announcements',

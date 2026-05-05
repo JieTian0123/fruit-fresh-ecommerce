@@ -26,6 +26,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -48,6 +50,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     private final NotificationService notificationService;
     private final VipService vipService;
     private final UserMapper userMapper;
+    private final MerchantShopMapper merchantShopMapper;
 
     @Override
     public PageResult<Order> listForConsumer(Long userId, Integer status, Integer pageNum, Integer pageSize) {
@@ -63,29 +66,18 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Page<Order> page = new Page<>(pageNum, pageSize);
         Page<Order> result = baseMapper.selectPage(page, wrapper);
 
-        // 填充订单项
-        if (!result.getRecords().isEmpty()) {
-            List<String> orderNos = result.getRecords().stream()
-                    .map(Order::getOrderNo)
-                    .collect(Collectors.toList());
-
-            LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
-            itemWrapper.in(OrderItem::getOrderNo, orderNos);
-            List<OrderItem> allItems = orderItemMapper.selectList(itemWrapper);
-
-            Map<String, List<OrderItem>> itemMap = allItems.stream()
-                    .collect(Collectors.groupingBy(OrderItem::getOrderNo));
-
-            result.getRecords().forEach(order -> {
-                order.setOrderItems(itemMap.get(order.getOrderNo()));
-            });
-        }
+        fillOrderItems(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
     }
 
     @Override
     public PageResult<Order> listForMerchant(Long merchantId, Integer status, Integer pageNum, Integer pageSize) {
+        return listForMerchant(merchantId, status, null, pageNum, pageSize);
+    }
+
+    @Override
+    public PageResult<Order> listForMerchant(Long merchantId, Integer status, String orderNo, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Order::getMerchantId, merchantId);
 
@@ -93,10 +85,16 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             wrapper.eq(Order::getStatus, status);
         }
 
+        if (StringUtils.isNotBlank(orderNo)) {
+            wrapper.like(Order::getOrderNo, orderNo);
+        }
+
         wrapper.orderByDesc(Order::getCreateTime);
 
         Page<Order> page = new Page<>(pageNum, pageSize);
         Page<Order> result = baseMapper.selectPage(page, wrapper);
+
+        fillOrderItems(result.getRecords());
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
     }
@@ -117,6 +115,35 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         Page<Order> page = new Page<>(pageNum, pageSize);
         Page<Order> result = baseMapper.selectPage(page, wrapper);
+
+        fillOrderItems(result.getRecords());
+
+        // 填充商家名称
+        if (!result.getRecords().isEmpty()) {
+            // 获取所有商家ID
+            List<Long> merchantIds = result.getRecords().stream()
+                    .map(Order::getMerchantId)
+                    .filter(id -> id != null)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // 查询商家店铺名称
+            Map<Long, String> merchantNameMap = new HashMap<>();
+            if (!merchantIds.isEmpty()) {
+                LambdaQueryWrapper<MerchantShop> shopWrapper = new LambdaQueryWrapper<>();
+                shopWrapper.in(MerchantShop::getMerchantId, merchantIds);
+                List<MerchantShop> shops = merchantShopMapper.selectList(shopWrapper);
+                merchantNameMap = shops.stream()
+                        .collect(Collectors.toMap(MerchantShop::getMerchantId, MerchantShop::getShopName, (a, b) -> a));
+            }
+
+            Map<Long, String> finalMerchantNameMap = merchantNameMap;
+            result.getRecords().forEach(order -> {
+                if (order.getMerchantId() != null) {
+                    order.setMerchantName(finalMerchantNameMap.get(order.getMerchantId()));
+                }
+            });
+        }
 
         return PageResult.of(result.getCurrent(), result.getSize(), result.getTotal(), result.getRecords());
     }
@@ -328,6 +355,23 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         // 恢复库存
         restoreStock(orderNo);
+
+        // 返还优惠券
+        if (order.getCouponId() != null) {
+            UserCoupon userCoupon = userCouponMapper.selectById(order.getCouponId());
+            if (userCoupon != null && userCoupon.getStatus() == 1) {
+                userCoupon.setStatus(0);
+                userCoupon.setUseTime(null);
+                userCoupon.setOrderNo(null);
+                userCouponMapper.updateById(userCoupon);
+                // 优惠券已使用数量减1
+                Coupon coupon = couponMapper.selectById(userCoupon.getCouponId());
+                if (coupon != null && coupon.getUsedQuantity() > 0) {
+                    coupon.setUsedQuantity(coupon.getUsedQuantity() - 1);
+                    couponMapper.updateById(coupon);
+                }
+            }
+        }
     }
 
     @Override
@@ -476,5 +520,29 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 productMapper.updateById(product);
             }
         }
+    }
+
+    private void fillOrderItems(List<Order> orders) {
+        if (orders == null || orders.isEmpty()) {
+            return;
+        }
+
+        List<String> orderNos = orders.stream()
+                .map(Order::getOrderNo)
+                .filter(StringUtils::isNotBlank)
+                .collect(Collectors.toList());
+        if (orderNos.isEmpty()) {
+            return;
+        }
+
+        LambdaQueryWrapper<OrderItem> itemWrapper = new LambdaQueryWrapper<>();
+        itemWrapper.in(OrderItem::getOrderNo, orderNos);
+        List<OrderItem> allItems = orderItemMapper.selectList(itemWrapper);
+
+        Map<String, List<OrderItem>> itemMap = allItems.stream()
+                .collect(Collectors.groupingBy(OrderItem::getOrderNo));
+
+        orders.forEach(order -> order.setOrderItems(
+                itemMap.getOrDefault(order.getOrderNo(), Collections.emptyList())));
     }
 }

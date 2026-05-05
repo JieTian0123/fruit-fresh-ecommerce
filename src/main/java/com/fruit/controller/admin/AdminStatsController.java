@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,6 +43,20 @@ public class AdminStatsController {
     @GetMapping("/period")
     public Result<PeriodStatsVO> periodStats(@RequestParam(defaultValue = "week") String period) {
         PeriodStatsVO data = statsService.getAdminPeriodStats(period);
+        return Result.success(data);
+    }
+
+    @ApiOperation("订单状态分布")
+    @GetMapping("/order-status")
+    public Result<List<Map<String, Object>>> orderStatusDistribution() {
+        List<Map<String, Object>> data = statsService.getOrderStatusDistribution();
+        return Result.success(data);
+    }
+
+    @ApiOperation("用户增长趋势")
+    @GetMapping("/user-growth")
+    public Result<List<Map<String, Object>>> userGrowthTrend(@RequestParam(defaultValue = "week") String period) {
+        List<Map<String, Object>> data = statsService.getUserGrowthTrend(period);
         return Result.success(data);
     }
 }

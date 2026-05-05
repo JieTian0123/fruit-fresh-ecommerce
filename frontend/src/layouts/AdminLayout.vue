@@ -44,6 +44,10 @@
           <el-icon><Ticket /></el-icon>
           <span>优惠券管理</span>
         </el-menu-item>
+        <el-menu-item index="/admin/activities">
+          <el-icon><Picture /></el-icon>
+          <span>首页活动</span>
+        </el-menu-item>
         <el-menu-item index="/admin/announcements">
           <el-icon><Bell /></el-icon>
           <span>公告管理</span>
@@ -245,7 +249,7 @@ function handleCommand(command: string) {
 
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 20px;
   background-color: var(--color-background);
   overflow-y: auto;
 }

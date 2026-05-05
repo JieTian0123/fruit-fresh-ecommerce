@@ -221,7 +221,7 @@ function handleCommand(command: string) {
 
 .main-content {
   flex: 1;
-  padding: 24px;
+  padding: 20px;
   background-color: var(--color-background);
   overflow-y: auto;
 }

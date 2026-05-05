@@ -430,4 +430,61 @@ public class StatsServiceImpl implements StatsService {
                 .divide(previous, 1, RoundingMode.HALF_UP)
                 .doubleValue();
     }
+
+    @Override
+    public List<Map<String, Object>> getOrderStatusDistribution() {
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        // 状态映射：0-待付款 1-待发货 2-待收货 3-已完成 4-已取消 5-申请退款 6-已退款
+        String[] statusNames = {"待付款", "待发货", "待收货", "已完成", "已取消", "申请退款", "已退款"};
+        String[] statusColors = {"#E6A23C", "#409EFF", "#67C23A", "#228B22", "#909399", "#F56C6C", "#909399"};
+
+        for (int i = 0; i <= 6; i++) {
+            LambdaQueryWrapper<Order> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Order::getStatus, i);
+            long count = orderMapper.selectCount(wrapper);
+
+            // 只返回有订单的状态
+            if (count > 0) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("value", count);
+                item.put("name", statusNames[i]);
+                item.put("status", i);
+                Map<String, String> itemStyle = new HashMap<>();
+                itemStyle.put("color", statusColors[i]);
+                item.put("itemStyle", itemStyle);
+                result.add(item);
+            }
+        }
+
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getUserGrowthTrend(String period) {
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        int days = "month".equals(period) ? 30 : 7;
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd");
+
+        for (int i = days - 1; i >= 0; i--) {
+            LocalDate date = LocalDate.now().minusDays(i);
+            LocalDateTime dayStart = date.atStartOfDay();
+            LocalDateTime dayEnd = date.atTime(LocalTime.MAX);
+
+            // 统计当天新增用户数
+            LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(User::getUserType, 0); // 只统计消费者
+            wrapper.ge(User::getCreateTime, dayStart);
+            wrapper.le(User::getCreateTime, dayEnd);
+            long count = userMapper.selectCount(wrapper);
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("date", date.format(formatter));
+            item.put("count", count);
+            result.add(item);
+        }
+
+        return result;
+    }
 }

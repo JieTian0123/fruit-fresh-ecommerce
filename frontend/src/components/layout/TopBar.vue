@@ -30,6 +30,10 @@
       </div>
       
       <div class="right-links">
+        <div class="menu-item" @click="router.push('/')">
+          <el-icon><House /></el-icon>
+          首页
+        </div>
         <div class="menu-item" @click="router.push('/messages')">
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
             <el-icon><ChatDotRound /></el-icon>
@@ -59,6 +63,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useCartStore } from '@/stores/cart'
 import { getUnreadCount } from '@/api/message'
+import { House } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()

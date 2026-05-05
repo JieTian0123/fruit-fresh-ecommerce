@@ -1,5 +1,7 @@
 package com.fruit.vo;
 
+import com.fruit.annotation.Sensitive;
+import com.fruit.annotation.SensitiveStrategy;
 import lombok.Data;
 
 /**
@@ -31,11 +33,13 @@ public class LoginVO {
     /**
      * 手机号
      */
+    @Sensitive(strategy = SensitiveStrategy.PHONE)
     private String phone;
 
     /**
      * 邮箱
      */
+    @Sensitive(strategy = SensitiveStrategy.EMAIL)
     private String email;
 
     /**
@@ -52,4 +56,14 @@ public class LoginVO {
      * Token
      */
     private String token;
+
+    /**
+     * 积分
+     */
+    private Integer points;
+
+    /**
+     * 累计消费金额
+     */
+    private java.math.BigDecimal totalConsumption;
 }

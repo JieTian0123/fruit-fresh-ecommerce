@@ -2,7 +2,12 @@
   <div class="announcement-manage-page">
     <div class="header">
       <h2>公告管理</h2>
-      <el-button type="primary" @click="handleAdd">添加公告</el-button>
+      <div class="header-actions">
+        <el-button type="danger" :disabled="selectedAnnouncements.length === 0" @click="handleBatchDelete">
+          删除选中
+        </el-button>
+        <el-button type="primary" @click="handleAdd">添加公告</el-button>
+      </div>
     </div>
 
     <!-- Filter bar -->
@@ -23,32 +28,43 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="announcementList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-      <el-table-column label="类型" width="100">
+    <el-table
+      class="admin-data-table"
+      :data="announcementList"
+      v-loading="loading"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="38" />
+      <el-table-column prop="id" label="ID" width="50" />
+      <el-table-column prop="title" label="标题" min-width="190" class-name="admin-ellipsis" show-overflow-tooltip />
+      <el-table-column label="类型" width="104" class-name="admin-tag-column">
         <template #default="{ row }">
           <el-tag :type="row.type === 1 ? '' : row.type === 2 ? 'success' : 'warning'">
             {{ announcementTypeText(row.type) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="viewCount" label="浏览量" width="80" />
-      <el-table-column prop="sort" label="排序" width="80" />
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="viewCount" label="浏览量" width="70" />
+      <el-table-column prop="sort" label="排序" width="62" />
+      <el-table-column label="状态" width="92" class-name="admin-tag-column">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : row.status === 0 ? 'info' : 'danger'">
             {{ row.status === 1 ? '已发布' : row.status === 0 ? '草稿' : '已下架' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" width="250" fixed="right">
+      <el-table-column label="创建时间" width="168" class-name="admin-nowrap">
+        <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="172" class-name="admin-action-column">
         <template #default="{ row }">
-          <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button v-if="row.status !== 1" text type="success" @click="handlePublish(row)">发布</el-button>
-          <el-button v-if="row.status === 1" text type="warning" @click="handleUnpublish(row)">下架</el-button>
-          <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+          <div class="admin-table-actions">
+            <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button v-if="row.status !== 1" text type="success" @click="handlePublish(row)">发布</el-button>
+            <el-button v-if="row.status === 1" text type="warning" @click="handleUnpublish(row)">下架</el-button>
+            <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+          </div>
         </template>
       </el-table-column>
     </el-table>
@@ -100,10 +116,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import type { Announcement } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
 
 import { getAnnouncementList, addAnnouncement, updateAnnouncement, publishAnnouncement, unpublishAnnouncement, deleteAnnouncement } from '@/api/admin'
+import { batchDeleteSelected } from '@/utils/batchDelete'
 
 const announcementList = ref<Announcement[]>([])
+const selectedAnnouncements = ref<Announcement[]>([])
 const loading = ref(false)
 const total = ref(0)
 const dialogVisible = ref(false)
@@ -174,6 +193,10 @@ function handleEdit(row: Announcement) {
   dialogVisible.value = true
 }
 
+function handleSelectionChange(selection: Announcement[]) {
+  selectedAnnouncements.value = selection
+}
+
 async function handleSubmit() {
   if (!form.title.trim()) {
     ElMessage.warning('请输入公告标题')
@@ -235,6 +258,16 @@ async function handleDelete(row: Announcement) {
   }
 }
 
+async function handleBatchDelete() {
+  await batchDeleteSelected({
+    items: selectedAnnouncements.value,
+    label: '公告',
+    deleteOne: deleteAnnouncement,
+    afterDelete: loadAnnouncements
+  })
+  selectedAnnouncements.value = []
+}
+
 onMounted(() => {
   loadAnnouncements()
 })
@@ -254,6 +287,10 @@ onMounted(() => {
 }
 .header h2 {
   font-size: 18px;
+}
+.header-actions {
+  display: flex;
+  gap: 12px;
 }
 .filter-bar {
   display: flex;

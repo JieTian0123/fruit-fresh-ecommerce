@@ -30,11 +30,12 @@ public class MerchantOrderController {
     @GetMapping("/list")
     public Result<PageResult<Order>> list(
             @ApiParam("订单状态") @RequestParam(required = false) Integer status,
+            @ApiParam("订单号") @RequestParam(required = false) String orderNo,
             @ApiParam("页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @ApiParam("每页大小") @RequestParam(defaultValue = "10") Integer pageSize) {
 
         Long merchantId = UserContext.getUserId();
-        PageResult<Order> pageResult = orderService.listForMerchant(merchantId, status, pageNum, pageSize);
+        PageResult<Order> pageResult = orderService.listForMerchant(merchantId, status, orderNo, pageNum, pageSize);
         return Result.success(pageResult);
     }
 

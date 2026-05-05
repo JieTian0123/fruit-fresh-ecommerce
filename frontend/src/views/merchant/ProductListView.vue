@@ -2,9 +2,14 @@
   <div class="product-list-page">
     <div class="header">
       <h2>商品管理</h2>
-      <el-button type="primary" @click="$router.push('/merchant/products/add')">
-        <el-icon><Plus /></el-icon> 添加商品
-      </el-button>
+      <div class="header-actions">
+        <el-button type="danger" :disabled="selectedProducts.length === 0" @click="handleBatchDelete">
+          删除选中
+        </el-button>
+        <el-button type="primary" @click="$router.push('/merchant/products/add')">
+          <el-icon><Plus /></el-icon> 添加商品
+        </el-button>
+      </div>
     </div>
     
     <!-- 筛选区 -->
@@ -18,8 +23,15 @@
     </div>
     
     <!-- 商品表格 -->
-    <el-table :data="productList" v-loading="loading" style="width: 100%">
-      <el-table-column label="商品" min-width="280">
+    <el-table
+      class="admin-data-table"
+      :data="productList"
+      v-loading="loading"
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="38" />
+      <el-table-column label="商品" min-width="260">
         <template #default="{ row }">
           <div class="product-cell">
             <img :src="row.mainImage" :alt="row.name" class="product-img" @error="(e: Event) => (e.target as HTMLImageElement).src = defaultImage" />
@@ -30,23 +42,23 @@
           </div>
         </template>
       </el-table-column>
-      <el-table-column prop="price" label="价格" width="120">
+      <el-table-column prop="price" label="价格" width="86">
         <template #default="{ row }">
           <span class="price">¥{{ row.price?.toFixed(2) }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="stock" label="库存" width="100" />
-      <el-table-column prop="sales" label="销量" width="100" />
-      <el-table-column prop="status" label="状态" width="100">
+      <el-table-column prop="stock" label="库存" width="68" />
+      <el-table-column prop="sales" label="销量" width="68" />
+      <el-table-column prop="status" label="状态" width="76">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'info'">
             {{ row.status === 1 ? '上架' : '下架' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="172" class-name="admin-action-column">
         <template #default="{ row }">
-          <div class="action-buttons">
+          <div class="admin-table-actions">
             <el-button text type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button v-if="row.status === 1" text type="warning" size="small" @click="handleToggleStatus(row, 0)">下架</el-button>
             <el-button v-else text type="success" size="small" @click="handleToggleStatus(row, 1)">上架</el-button>
@@ -77,6 +89,7 @@ import { getMerchantProductList, onSaleProduct, offSaleProduct } from '@/api/mer
 import { deleteProduct } from '@/api/product'
 import type { Product } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { batchDeleteSelected } from '@/utils/batchDelete'
 
 const defaultImage = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect fill='%23f5f5f5' width='200' height='200'/%3E%3Ctext x='100' y='110' text-anchor='middle' font-size='48'%3E🍊%3C/text%3E%3C/svg%3E"
 
@@ -84,6 +97,7 @@ const router = useRouter()
 
 const loading = ref(false)
 const productList = ref<Product[]>([])
+const selectedProducts = ref<Product[]>([])
 const total = ref(0)
 const query = reactive({
   keyword: '',
@@ -114,6 +128,10 @@ function handleEdit(product: Product) {
   router.push(`/merchant/products/edit/${product.id}`)
 }
 
+function handleSelectionChange(selection: Product[]) {
+  selectedProducts.value = selection
+}
+
 async function handleToggleStatus(product: Product, status: number) {
   const action = status === 1 ? '上架' : '下架'
   await ElMessageBox.confirm(`确定要${action}该商品吗？`, '确认操作')
@@ -135,6 +153,16 @@ async function handleDelete(product: Product) {
     ElMessage.success('删除成功')
     loadProducts()
   } catch {}
+}
+
+async function handleBatchDelete() {
+  await batchDeleteSelected({
+    items: selectedProducts.value,
+    label: '商品',
+    deleteOne: deleteProduct,
+    afterDelete: loadProducts
+  })
+  selectedProducts.value = []
 }
 
 onMounted(() => {
@@ -160,6 +188,11 @@ onMounted(() => {
   font-size: 18px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .filter-bar {
   display: flex;
   gap: 16px;
@@ -172,6 +205,11 @@ onMounted(() => {
   gap: 12px;
 }
 
+.product-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .product-img {
   width: 60px;
   height: 60px;
@@ -182,11 +220,19 @@ onMounted(() => {
 .product-info .name {
   font-weight: 500;
   margin-bottom: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .product-info .category {
   font-size: 12px;
   color: var(--color-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .price {
@@ -200,10 +246,4 @@ onMounted(() => {
   margin-top: 24px;
 }
 
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
-}
 </style>

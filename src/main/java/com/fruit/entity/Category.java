@@ -40,6 +40,12 @@ public class Category {
      */
     private Integer status;
 
+    /**
+     * 商品数量（不存数据库，管理端展示用）
+     */
+    @TableField(exist = false)
+    private Long productCount;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 

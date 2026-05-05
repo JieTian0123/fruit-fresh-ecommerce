@@ -21,6 +21,8 @@ public enum ResultCode {
     USER_NOT_EXIST(1001, "用户不存在"),
     USER_PASSWORD_ERROR(1002, "密码错误"),
     OLD_PASSWORD_ERROR(1007, "原密码错误"),
+    CAPTCHA_ERROR(1008, "验证码错误或已过期"),
+    RATE_LIMIT_EXCEEDED(1009, "操作过于频繁，请稍后再试"),
     USER_DISABLED(1003, "用户已被禁用"),
     USER_PENDING(1004, "用户待审核"),
     USERNAME_EXIST(1005, "用户名已存在"),

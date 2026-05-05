@@ -1,5 +1,6 @@
 package com.fruit.controller.merchant;
 
+import com.fruit.annotation.RateLimit;
 import com.fruit.common.result.Result;
 import com.fruit.dto.LoginDTO;
 import com.fruit.dto.RegisterDTO;
@@ -31,6 +32,7 @@ public class MerchantUserController {
     }
 
     @ApiOperation("商家登录")
+    @RateLimit(count = 5, time = 60)
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         LoginVO vo = userService.merchantLogin(dto);

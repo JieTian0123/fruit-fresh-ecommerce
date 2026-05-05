@@ -1,0 +1,65 @@
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.iml
+.idea/
+.vscode/
+
+# Local environment and logs
+.env
+.env.*
+!.env.example
+logs/
+*.log
+*.local
+
+# Java / Maven build output
+target/
+*.class
+
+# Node / Vue build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/coverage/
+frontend/*.log
+frontend/*.tsbuildinfo
+frontend/.eslintcache
+frontend/tmp-screenshots/
+
+# Test and browser artifacts
+coverage/
+__screenshots__/
+playwright-report/
+test-results/
+.playwright-mcp/
+
+# Codex and local tool artifacts
+.codex_ppt_deps/
+.opencode/
+.sisyphus/
+docs/superpowers/
+.github/java-upgrade/
+
+# Generated documents, thesis assets, screenshots, and temp work
+output/
+tmp/
+scripts/
+论文相关/
+*.docx
+*.pdf
+*.pptx
+~$*
+
+# Runtime uploads. Keep placeholder files if they are added intentionally.
+uploads/**
+!uploads/
+!uploads/images/
+!uploads/images/.gitkeep
+
+# Root-level ad-hoc database/mock scripts. Keep project SQL under /sql.
+/*.sql
+/*.py

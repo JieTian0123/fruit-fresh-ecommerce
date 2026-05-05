@@ -6,12 +6,9 @@
         v-for="cat in categories"
         :key="cat.id"
         class="category-item"
-        @mouseenter="activeCategory = cat.id"
-        @mouseleave="activeCategory = null"
         @click="router.push(`/category/${cat.id}`)"
       >
         <div class="item-content">
-          <el-icon class="cat-icon"><component :is="getCategoryIcon(cat.name)" /></el-icon>
           <span class="cat-name">{{ cat.name }}</span>
           <el-icon class="arrow-icon"><ArrowRight /></el-icon>
         </div>
@@ -28,26 +25,13 @@ import type { Category } from '@/types'
 
 const router = useRouter()
 const categories = ref<Category[]>([])
-const activeCategory = ref<number | null>(null)
-
-function getCategoryIcon(name: string) {
-  const iconMap: Record<string, string> = {
-    '水果': 'Apple',
-    '蔬菜': 'Food',
-    '肉类': 'Chicken',
-    '海鲜': 'Ship',
-    '蛋奶': 'Coffee',
-    '粮油': 'Bowl',
-    '零食': 'IceCream',
-    '饮品': 'ColdDrink'
-  }
-  return iconMap[name] || 'Goods'
-}
 
 async function loadCategories() {
   try {
     const res = await getCategoryList()
-    categories.value = res.data || []
+    categories.value = (res.data || [])
+      .filter(cat => cat.status === undefined || cat.status === 1)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
   } catch {
     categories.value = []
   }
@@ -63,7 +47,7 @@ onMounted(() => {
   background: white;
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
-  /* height auto-fits content — no forced stretch */
+  height: 100%;
   overflow: hidden;
   border: 1px solid #f0f0f0;
   display: flex;
@@ -84,6 +68,8 @@ onMounted(() => {
   padding: 8px 0;
   margin: 0;
   background: #fafbfc;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .category-item {
@@ -105,11 +91,6 @@ onMounted(() => {
   align-items: center;
   width: 100%;
   font-size: 14px;
-}
-
-.cat-icon {
-  margin-right: 12px;
-  font-size: 16px;
 }
 
 .cat-name {

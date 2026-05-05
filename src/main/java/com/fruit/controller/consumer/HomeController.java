@@ -5,6 +5,7 @@ import com.fruit.entity.Banner;
 import com.fruit.entity.Product;
 import com.fruit.service.BannerService;
 import com.fruit.service.ProductService;
+import com.fruit.vo.HomeActivityVO;
 import com.fruit.vo.HomeVO;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -45,5 +46,11 @@ public class HomeController {
         vo.setNewProducts(newProducts);
 
         return Result.success(vo);
+    }
+
+    @ApiOperation("首页固定活动")
+    @GetMapping("/activities")
+    public Result<List<HomeActivityVO>> activities() {
+        return Result.success(bannerService.getEnabledHomeActivities());
     }
 }

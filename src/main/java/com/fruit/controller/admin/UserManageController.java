@@ -6,6 +6,7 @@ import com.fruit.common.result.PageResult;
 import com.fruit.common.result.Result;
 import com.fruit.entity.User;
 import com.fruit.enums.StatusEnum;
+import com.fruit.enums.UserTypeEnum;
 import com.fruit.service.UserService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -34,9 +35,8 @@ public class UserManageController {
 
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
 
-        if (userType != null) {
-            wrapper.eq(User::getUserType, userType);
-        }
+        Integer queryUserType = userType != null ? userType : UserTypeEnum.CONSUMER.getCode();
+        wrapper.eq(User::getUserType, queryUserType);
 
         if (status != null) {
             wrapper.eq(User::getStatus, status);

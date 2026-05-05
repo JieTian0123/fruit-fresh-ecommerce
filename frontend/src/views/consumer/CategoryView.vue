@@ -28,6 +28,14 @@
     
     <!-- 右侧商品列表 -->
     <main class="product-main">
+      <div v-if="activityMeta" class="activity-hero" :class="`activity-${activityMeta.theme}`">
+        <div>
+          <span class="activity-badge">{{ activityMeta.badge }}</span>
+          <h2>{{ activityMeta.title }}</h2>
+          <p>{{ activityMeta.description }}</p>
+        </div>
+      </div>
+
       <!-- 筛选排序 -->
       <div class="filter-bar">
         <div class="sort-options">
@@ -118,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { useUserStore } from '@/stores/user'
@@ -143,6 +151,7 @@ const sortBy = ref('')
 const sortOrder = ref<string>('desc')
 const minPrice = ref<number>()
 const maxPrice = ref<number>()
+const keyword = ref('')
 
 // 分页
 const pageNum = ref(1)
@@ -151,20 +160,45 @@ const total = ref(0)
 
 // 监听路由参数
 watch(
-  () => route.params.id,
-  (newId) => {
+  () => [route.params.id, route.query.sort, route.query.activity, route.query.keyword],
+  ([newId, querySort, activity, queryKeyword]) => {
     currentCategoryId.value = newId ? Number(newId) : null
+    sortBy.value = typeof querySort === 'string' ? querySort : activity === 'daily-new' ? 'createTime' : sortBy.value
+    keyword.value = typeof queryKeyword === 'string' ? queryKeyword : ''
     pageNum.value = 1
     loadProducts()
   },
   { immediate: true }
 )
 
+const activityMeta = computed(() => {
+  const activity = route.query.activity
+  if (activity === 'daily-new') {
+    return {
+      theme: 'daily',
+      badge: '新鲜优选',
+      title: '新鲜到店',
+      description: '刚采摘入库生鲜'
+    }
+  }
+  if (activity === 'seasonal') {
+    return {
+      theme: 'deal',
+      badge: '动态降价',
+      title: '临期特惠',
+      description: '保质期过半低价购'
+    }
+  }
+  return null
+})
+
 // 加载分类
 async function loadCategories() {
   try {
     const res = await getCategoryList()
-    categories.value = res.data || []
+    categories.value = (res.data || [])
+      .filter(cat => cat.status === undefined || cat.status === 1)
+      .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
   } catch {
     categories.value = []
   }
@@ -176,6 +210,7 @@ async function loadProducts() {
   try {
     const res = await getProductList({
       categoryId: currentCategoryId.value || undefined,
+      keyword: keyword.value || undefined,
       sortBy: sortBy.value || undefined,
       sortOrder: sortOrder.value,
       minPrice: minPrice.value,
@@ -293,6 +328,68 @@ onMounted(() => {
 .product-main {
   flex: 1;
   min-width: 0;
+}
+
+.activity-hero {
+  min-height: 132px;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.activity-hero::after {
+  content: '';
+  position: absolute;
+  right: 28px;
+  bottom: -24px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.activity-hero h2 {
+  position: relative;
+  z-index: 1;
+  font-size: 26px;
+  margin: 8px 0 6px;
+  color: #244231;
+}
+
+.activity-hero p {
+  position: relative;
+  z-index: 1;
+  color: #5d6d62;
+  margin: 0;
+}
+
+.activity-badge {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.7);
+  color: #2f7a4f;
+}
+
+.activity-daily {
+  background: linear-gradient(135deg, #edfdf3 0%, #d9f5e5 55%, #fff1c8 100%);
+}
+
+.activity-seasonal {
+  background: linear-gradient(135deg, #fff8dc 0%, #eef8e6 48%, #d8f0ee 100%);
+}
+
+.activity-deal {
+  background: linear-gradient(135deg, #f0fdf4 0%, #fffbeb 58%, #fed7aa 100%);
 }
 
 .filter-bar {

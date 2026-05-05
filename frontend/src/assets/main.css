@@ -64,6 +64,25 @@ html, body {
   line-height: 1.6;
 }
 
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}
+
 #app {
   min-height: 100vh;
 }
@@ -232,4 +251,90 @@ a:hover {
 .empty-state .description {
   font-size: 14px;
   color: var(--color-text-light);
+}
+
+/* 后台表格：控制名称列挤占空间，时间/操作列保持一行 */
+.admin-data-table {
+  --el-table-header-bg-color: #fafafa;
+}
+
+.admin-data-table .el-table__cell {
+  padding: 8px 0;
+}
+
+.admin-data-table .cell {
+  padding: 0 8px;
+  line-height: 1.35;
+}
+
+.admin-data-table .admin-nowrap .cell {
+  white-space: nowrap;
+}
+
+.admin-data-table .admin-action-column .cell {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.admin-data-table .admin-tag-column .cell,
+.admin-data-table .admin-media-column .cell {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.admin-data-table .admin-tag-column .el-tag {
+  max-width: none;
+}
+
+.admin-data-table .admin-ellipsis .cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-table-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.admin-table-actions .el-button,
+.admin-table-actions .el-button + .el-button {
+  margin-left: 0 !important;
+}
+
+.admin-table-actions .el-button.is-text {
+  min-width: 0;
+  height: auto;
+  padding: 0 2px;
+}
+
+.admin-table-actions .el-button.is-text > span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.admin-table-shell {
+  width: 100%;
+  overflow: visible;
+}
+
+.admin-table-shell.is-compact {
+  max-width: 760px;
+}
+
+.admin-table-shell.is-medium {
+  max-width: 900px;
+}
+
+.admin-table-shell.is-user {
+  max-width: 980px;
+}
+
+.admin-table-shell.is-wide {
+  max-width: 1180px;
 }

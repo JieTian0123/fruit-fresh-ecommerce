@@ -6,7 +6,7 @@
         <!-- 商品图片 -->
         <div class="product-gallery">
           <div class="main-image">
-            <img :src="currentImage" :alt="product.name" />
+            <img :src="displayImage" :alt="product.name" @error="handleImageError" />
           </div>
           <div class="thumbnail-list" v-if="imageList.length > 1">
             <div
@@ -16,7 +16,7 @@
               :class="{ active: currentImage === img }"
               @click="currentImage = img"
             >
-              <img :src="img" :alt="`${product.name}-${index}`" />
+              <img :src="img" :alt="`${product.name}-${index}`" @error="handleImageError" />
             </div>
           </div>
         </div>
@@ -31,7 +31,7 @@
           <div class="shop-info-card" v-if="product.merchantName">
             <div class="shop-header">
               <div class="shop-left">
-                <el-avatar :size="50" :src="`/shop-avatar-${product.merchantId}.jpg`">
+                <el-avatar :size="50" :src="normalizeImageUrl(product.shopLogo)">
                   <el-icon><Shop /></el-icon>
                 </el-avatar>
                 <div class="shop-text">
@@ -46,7 +46,7 @@
                   @click="handleToggleFollow"
                   :loading="followLoading"
                 >
-                  {{ isFollowed ? '已关注' : '关注店铺' }}
+                  {{ isFollowed ? '取消关注' : '关注店铺' }}
                 </el-button>
                 <el-button @click="visitShop">进入店铺</el-button>
                 <el-button type="info" plain @click="contactService">
@@ -146,13 +146,14 @@
         <el-tabs>
           <el-tab-pane label="商品详情">
             <div class="description-content">
-              <p>{{ product.description || '暂无详细描述' }}</p>
+              <p>{{ product.detail || product.description || product.subtitle || '暂无详细描述' }}</p>
               <div class="product-images" v-if="imageList.length > 0">
                 <img
                   v-for="(img, index) in imageList"
                   :key="index"
                   :src="img"
                   :alt="`${product.name}-${index}`"
+                  @error="handleImageError"
                 />
               </div>
             </div>
@@ -167,7 +168,7 @@
                     </el-avatar>
                     <div class="review-user-info">
                       <span class="username">{{ review.username || '匿名用户' }}</span>
-                      <span class="review-time">{{ review.createTime }}</span>
+                      <span class="review-time">{{ formatDateTime(review.createTime) }}</span>
                     </div>
                     <el-rate v-model="review.rating" disabled />
                   </div>
@@ -175,10 +176,10 @@
                     <p class="review-text">{{ review.content }}</p>
                     <div class="review-images" v-if="review.images">
                       <el-image
-                        v-for="(img, idx) in review.images.split(',')"
+                        v-for="(img, idx) in splitImageList(review.images)"
                         :key="idx"
                         :src="img"
-                        :preview-src-list="review.images.split(',')"
+                        :preview-src-list="splitImageList(review.images)"
                         fit="cover"
                         class="review-image"
                       />
@@ -208,7 +209,7 @@
                   <el-timeline-item
                     v-for="item in traceabilityList"
                     :key="item.id"
-                    :timestamp="item.occurredTime"
+                    :timestamp="formatDateTime(item.occurredTime)"
                     placement="top"
                     :color="getNodeColor(item.nodeType)"
                   >
@@ -236,10 +237,10 @@
                       </div>
                       <el-image
                         v-if="item.imageUrl"
-                        :src="item.imageUrl"
+                        :src="normalizeImageUrl(item.imageUrl)"
                         fit="cover"
                         class="trace-image"
-                        :preview-src-list="[item.imageUrl]"
+                        :preview-src-list="[normalizeImageUrl(item.imageUrl)]"
                       />
                     </div>
                   </el-timeline-item>
@@ -289,6 +290,8 @@ import type { Product, Review, ProductTraceability } from '@/types'
 import { ElMessage } from 'element-plus'
 import { Shop, Star, StarFilled, User, Location, ChatDotRound } from '@element-plus/icons-vue'
 import FreshnessBar from '@/components/FreshnessBar.vue'
+import { formatDateTime } from '@/utils/format'
+import { normalizeImageUrl, splitImageList } from '@/utils/image'
 
 const route = useRoute()
 const router = useRouter()
@@ -306,14 +309,37 @@ const reviewPageSize = ref(10)
 const reviewTotal = ref(0)
 const traceabilityList = ref<ProductTraceability[]>([])
 
-// 商品图片列表
-const imageList = computed(() => {
-  if (!product.value?.images) return []
-  return product.value.images.split(',').filter(Boolean)
-})
-
 // 当前显示的图片
 const currentImage = ref('')
+
+const defaultProductImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600"><rect width="600" height="600" fill="#f0fdf4"/><text x="300" y="280" text-anchor="middle" font-size="120">🍊</text><text x="300" y="350" text-anchor="middle" fill="#94a3b8" font-size="28" font-family="sans-serif">暂无图片</text></svg>')
+
+// 商品图片列表
+const imageList = computed(() => {
+  if (!product.value) return []
+  const images = [
+    normalizeImageUrl(product.value.mainImage),
+    ...splitImageList(product.value.subImages),
+    ...splitImageList(product.value.images)
+  ].filter(Boolean) as string[]
+  return Array.from(new Set(images))
+})
+
+const displayImage = computed(() => currentImage.value || imageList.value[0] || defaultProductImage)
+
+function handleImageError(e: Event) {
+  const img = e.target as HTMLImageElement
+  img.src = defaultProductImage
+}
+
+function withTimeout<T>(promise: Promise<T>, timeout = 8000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      window.setTimeout(() => reject(new Error('request timeout')), timeout)
+    })
+  ])
+}
 
 // 加载商品详情
 async function loadProduct() {
@@ -326,20 +352,15 @@ async function loadProduct() {
     product.value = res.data
     
     // 设置默认显示图片
-    if (imageList.value.length > 0) {
-      currentImage.value = imageList.value[0] || ''
-    }
+    currentImage.value = imageList.value[0] || defaultProductImage
     
-    // 如果用户已登录且商品有商家信息，检查是否已关注
-    if (userStore.isLoggedIn && product.value?.merchantId) {
-      await checkFollowShopStatus()
-    }
-
-    // 加载评价
-    await loadReviews()
-    
-    // 加载溯源信息
-    await loadTraceability()
+    void Promise.allSettled([
+      userStore.isLoggedIn && product.value?.shopId
+        ? withTimeout(checkFollowShopStatus())
+        : Promise.resolve(),
+      withTimeout(loadReviews()),
+      withTimeout(loadTraceability())
+    ])
   } catch {
     product.value = null
   } finally {
@@ -428,8 +449,8 @@ async function handleToggleFollow() {
 
 // 进入店铺
 function visitShop() {
-  if (!product.value?.merchantId) return
-  router.push(`/shop/${product.value.merchantId}`)
+  if (!product.value?.shopId) return
+  router.push(`/shop/${product.value.shopId}`)
 }
 
 // 联系客服
@@ -439,7 +460,8 @@ function contactService() {
     router.push('/login')
     return
   }
-  router.push({ path: '/messages', query: { merchantId: product.value?.merchantId } })
+  if (!product.value?.merchantId) return
+  router.push(`/chat/${product.value.merchantId}`)
 }
 
 // 添加到购物车

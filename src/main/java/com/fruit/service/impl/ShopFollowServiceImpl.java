@@ -1,13 +1,14 @@
 package com.fruit.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fruit.common.exception.BusinessException;
 import com.fruit.common.result.ResultCode;
 import com.fruit.entity.MerchantShop;
+import com.fruit.entity.Product;
 import com.fruit.entity.ShopFollow;
 import com.fruit.mapper.MerchantShopMapper;
+import com.fruit.mapper.ProductMapper;
 import com.fruit.mapper.ShopFollowMapper;
 import com.fruit.service.ShopFollowService;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 public class ShopFollowServiceImpl extends ServiceImpl<ShopFollowMapper, ShopFollow> implements ShopFollowService {
 
     private final MerchantShopMapper merchantShopMapper;
+    private final ProductMapper productMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -44,17 +46,12 @@ public class ShopFollowServiceImpl extends ServiceImpl<ShopFollowMapper, ShopFol
             throw new BusinessException("您已关注该店铺");
         }
 
-        // 查询是否存在逻辑删除记录（需绕过 @TableLogic 过滤）
-        QueryWrapper<ShopFollow> deletedWrapper = new QueryWrapper<>();
-        deletedWrapper.eq("user_id", userId)
-                .eq("shop_id", shopId)
-                .eq("deleted", 1);
-        ShopFollow existing = getBaseMapper().selectOne(deletedWrapper);
+        // 使用自定义SQL绕过@TableLogic查找已软删除的记录
+        ShopFollow existing = getBaseMapper().selectDeletedByUserAndShop(userId, shopId);
 
         if (existing != null) {
-            // 恢复逻辑删除记录
-            existing.setDeleted(0);
-            getBaseMapper().updateById(existing);
+            // 使用自定义SQL恢复已软删除记录（绕过@TableLogic）
+            getBaseMapper().restoreById(existing.getId());
         } else {
             // 新增关注记录
             ShopFollow follow = new ShopFollow();
@@ -98,6 +95,25 @@ public class ShopFollowServiceImpl extends ServiceImpl<ShopFollowMapper, ShopFol
                 .map(ShopFollow::getShopId)
                 .collect(Collectors.toList());
 
-        return merchantShopMapper.selectBatchIds(shopIds);
+        List<MerchantShop> shops = merchantShopMapper.selectBatchIds(shopIds);
+        if (shops.isEmpty()) {
+            return shops;
+        }
+
+        List<Long> merchantIds = shops.stream()
+                .map(MerchantShop::getMerchantId)
+                .collect(Collectors.toList());
+
+        LambdaQueryWrapper<Product> productWrapper = new LambdaQueryWrapper<>();
+        productWrapper.in(Product::getMerchantId, merchantIds)
+                .eq(Product::getStatus, 1)
+                .select(Product::getMerchantId);
+
+        List<Product> products = productMapper.selectList(productWrapper);
+        java.util.Map<Long, Long> productCountMap = products.stream()
+                .collect(Collectors.groupingBy(Product::getMerchantId, Collectors.counting()));
+
+        shops.forEach(shop -> shop.setProductCount(productCountMap.getOrDefault(shop.getMerchantId(), 0L).intValue()));
+        return shops;
     }
 }

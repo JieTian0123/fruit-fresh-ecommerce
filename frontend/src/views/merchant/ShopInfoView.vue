@@ -8,7 +8,21 @@
           <el-input v-model="form.shopName" placeholder="请输入店铺名称" />
         </el-form-item>
         <el-form-item label="店铺Logo">
-          <el-input v-model="form.logo" placeholder="请输入Logo URL" />
+          <div class="logo-upload">
+            <el-avatar :size="86" shape="square" :src="normalizeImageUrl(form.logo)">
+              {{ form.shopName?.[0] || '店' }}
+            </el-avatar>
+            <div class="logo-actions">
+              <el-upload
+                action=""
+                :show-file-list="false"
+                :before-upload="handleLogoUpload"
+              >
+                <el-button type="primary" text>选择图片</el-button>
+              </el-upload>
+              <el-button v-if="form.logo" type="danger" text @click="form.logo = ''">移除</el-button>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="店铺描述">
           <el-input v-model="form.description" type="textarea" :rows="4" placeholder="请输入店铺描述" />
@@ -53,6 +67,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import type { ShopDTO } from '@/types'
 import { ElMessage } from 'element-plus'
+import { normalizeImageUrl } from '@/utils/image'
 
 import { getShopInfo, createShop, updateShop } from '@/api/merchant'
 
@@ -127,6 +142,41 @@ async function handleSave() {
   }
 }
 
+async function handleLogoUpload(file: File) {
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('只能上传图片文件')
+    return false
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过5MB')
+    return false
+  }
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  try {
+    const response = await fetch('/api/common/upload/image', {
+      method: 'POST',
+      headers: {
+        Authorization: localStorage.getItem('token') || ''
+      },
+      body: formData
+    })
+    const result = await response.json()
+    if (result.code === 200) {
+      form.logo = result.data
+      ElMessage.success('Logo上传成功')
+    } else {
+      ElMessage.error(result.message || '上传失败')
+    }
+  } catch {
+    ElMessage.error('上传失败，请重试')
+  }
+
+  return false
+}
+
 onMounted(() => {
   loadShopInfo()
 })
@@ -146,5 +196,17 @@ onMounted(() => {
 }
 .shop-form-wrapper {
   padding: 20px 0;
+}
+
+.logo-upload {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>

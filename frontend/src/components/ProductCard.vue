@@ -3,7 +3,7 @@
     <!-- 商品图片 -->
     <div class="product-image-wrapper">
       <img
-        :src="product.mainImage || product.images?.split(',')[0] || defaultImage"
+        :src="productImage"
         :alt="product.name"
         class="product-image"
         @error="handleImageError"
@@ -56,6 +56,7 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Product } from '@/types'
+import { defaultImage, getProductImage } from '@/utils/image'
 
 const props = defineProps<{
   product: Product
@@ -94,8 +95,7 @@ const hasDiscount = computed(() => {
          props.product.currentPrice < props.product.price
 })
 
-// 默认图片 - 内联SVG水果图标
-const defaultImage = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300"><rect fill="#f0fdf4" width="300" height="300"/><text x="150" y="140" text-anchor="middle" font-size="64">🍊</text><text x="150" y="180" text-anchor="middle" fill="#9ca3af" font-size="14" font-family="sans-serif">暂无图片</text></svg>')
+const productImage = computed(() => getProductImage(props.product))
 
 // 格式化销量
 function formatSales(sales: number): string {

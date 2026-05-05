@@ -52,10 +52,10 @@
               <el-button
                 type="primary"
                 size="small"
-                :disabled="coupon.totalQuantity - coupon.receivedQuantity <= 0 || pointsBalance < coupon.pointsPrice"
+                :disabled="getExchangeButtonState(coupon).disabled"
                 @click="handleExchange(coupon)"
               >
-                {{ coupon.totalQuantity - coupon.receivedQuantity <= 0 ? '已兑完' : pointsBalance < coupon.pointsPrice ? '积分不足' : '立即兑换' }}
+                {{ getExchangeButtonState(coupon).text }}
               </el-button>
             </div>
           </div>
@@ -81,7 +81,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Coin } from '@element-plus/icons-vue'
-import { getExchangeableCoupons, exchangeCoupon } from '@/api/coupon'
+import { getExchangeableCoupons, exchangeCoupon, getCouponAcquireTypes } from '@/api/coupon'
 import { getPointsBalance } from '@/api/points'
 
 const loading = ref(false)
@@ -90,6 +90,7 @@ const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(10)
 const pointsBalance = ref(0)
+const couponAcquireTypeMap = ref<Record<string, 'receive' | 'exchange'>>({})
 
 // 优惠券类型标签
 const couponTypeTag = (type: number) => {
@@ -113,6 +114,17 @@ const loadBalance = async () => {
   }
 }
 
+const loadCouponAcquireTypes = async () => {
+  try {
+    const res = await getCouponAcquireTypes()
+    if (res.code === 200) {
+      couponAcquireTypeMap.value = res.data || {}
+    }
+  } catch (error) {
+    console.error('加载优惠券获得方式失败:', error)
+  }
+}
+
 // 加载可兑换优惠券列表
 const loadCoupons = async () => {
   loading.value = true
@@ -130,8 +142,30 @@ const loadCoupons = async () => {
   }
 }
 
+const getCouponAcquireType = (couponId: number) => {
+  return couponAcquireTypeMap.value[String(couponId)]
+}
+
+const getExchangeButtonState = (coupon: any) => {
+  const acquireType = getCouponAcquireType(coupon.id)
+  if (acquireType === 'exchange') {
+    return { text: '已兑换', disabled: true }
+  }
+  if (acquireType === 'receive') {
+    return { text: '已领取', disabled: true }
+  }
+  if (coupon.totalQuantity - coupon.receivedQuantity <= 0) {
+    return { text: '已兑完', disabled: true }
+  }
+  if (pointsBalance.value < coupon.pointsPrice) {
+    return { text: '积分不足', disabled: true }
+  }
+  return { text: '立即兑换', disabled: false }
+}
+
 // 兑换优惠券
 const handleExchange = async (coupon: any) => {
+  if (getExchangeButtonState(coupon).disabled) return
   try {
     await ElMessageBox.confirm(
       `确定使用 ${coupon.pointsPrice} 积分兑换「${coupon.title}」吗？`,
@@ -145,7 +179,8 @@ const handleExchange = async (coupon: any) => {
     const res = await exchangeCoupon(coupon.id)
     if (res.code === 200) {
       ElMessage.success('兑换成功')
-      await Promise.all([loadBalance(), loadCoupons()])
+      couponAcquireTypeMap.value[String(coupon.id)] = 'exchange'
+      await Promise.all([loadBalance(), loadCoupons(), loadCouponAcquireTypes()])
     } else {
       ElMessage.error(res.message || '兑换失败')
     }
@@ -158,6 +193,7 @@ const handleExchange = async (coupon: any) => {
 onMounted(() => {
   loadBalance()
   loadCoupons()
+  loadCouponAcquireTypes()
 })
 </script>
 
@@ -208,13 +244,13 @@ onMounted(() => {
     gap: 20px;
   }
 
-  .coupon-card {
-    display: flex;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    transition: all 0.3s;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    .coupon-card {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s;
+      background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
 
     &:hover {
       transform: translateY(-5px);

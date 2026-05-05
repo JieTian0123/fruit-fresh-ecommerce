@@ -1,5 +1,7 @@
 package com.fruit.vo;
 
+import com.fruit.annotation.Sensitive;
+import com.fruit.annotation.SensitiveStrategy;
 import com.fruit.entity.OrderItem;
 import lombok.Data;
 
@@ -21,10 +23,13 @@ public class OrderDetailVO {
 
     private Long merchantId;
 
+    @Sensitive(strategy = SensitiveStrategy.NAME)
     private String receiverName;
 
+    @Sensitive(strategy = SensitiveStrategy.PHONE)
     private String receiverPhone;
 
+    @Sensitive(strategy = SensitiveStrategy.ADDRESS)
     private String receiverAddress;
 
     private BigDecimal totalAmount;

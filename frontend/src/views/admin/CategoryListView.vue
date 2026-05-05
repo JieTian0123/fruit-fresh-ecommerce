@@ -2,36 +2,61 @@
   <div class="category-list-page">
     <div class="header">
       <h2>分类管理</h2>
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon> 添加分类
-      </el-button>
+      <div class="header-actions">
+        <el-button type="danger" :disabled="selectedCategories.length === 0" @click="handleBatchDelete">
+          删除选中
+        </el-button>
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon> 添加分类
+        </el-button>
+      </div>
     </div>
     
     <!-- 分类表格 -->
-    <el-table :data="categoryList" v-loading="loading" style="width: 100%" row-key="id">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column label="分类图标" width="100">
-        <template #default="{ row }">
-          <img v-if="row.icon" :src="row.icon" class="category-icon" />
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="name" label="分类名称" min-width="150" />
-      <el-table-column prop="sort" label="排序" width="100" />
-      <el-table-column prop="productCount" label="商品数" width="100" />
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }">
-          <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleStatusChange(row)" />
-        </template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="{ row }">
-          <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="admin-table-shell is-compact">
+      <el-table
+        class="admin-data-table"
+        :data="categoryList"
+        v-loading="loading"
+        :fit="false"
+        style="width: 100%"
+        row-key="id"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="38" />
+        <el-table-column prop="id" label="ID" width="50" />
+        <el-table-column prop="name" label="分类名称" width="130" class-name="admin-ellipsis" show-overflow-tooltip />
+        <el-table-column prop="sort" label="排序" width="62" />
+        <el-table-column prop="productCount" label="商品数" width="70" />
+        <el-table-column prop="status" label="状态" width="80">
+          <template #default="{ row }">
+            <el-switch v-model="row.status" :active-value="1" :inactive-value="0" @change="handleStatusChange(row)" />
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="168" class-name="admin-nowrap">
+          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="112" class-name="admin-action-column">
+          <template #default="{ row }">
+            <div class="admin-table-actions">
+              <el-button text type="primary" @click="handleEdit(row)">编辑</el-button>
+              <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="query.page"
+        v-model:page-size="query.size"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next"
+        @change="loadCategories"
+      />
+    </div>
     
     <!-- 编辑对话框 -->
     <el-dialog
@@ -43,18 +68,6 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="分类名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入分类名称" />
-        </el-form-item>
-        
-        <el-form-item label="分类图标">
-          <el-upload
-            class="icon-uploader"
-            action=""
-            :show-file-list="false"
-            :before-upload="handleIconUpload"
-          >
-            <img v-if="form.icon" :src="form.icon" class="icon-preview" />
-            <el-icon v-else class="upload-icon"><Plus /></el-icon>
-          </el-upload>
         </el-form-item>
         
         <el-form-item label="排序" prop="sort">
@@ -80,17 +93,33 @@ import { ref, reactive, onMounted } from 'vue'
 import type { Category } from '@/types'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  addCategory,
+  deleteCategory,
+  getCategoryListForAdmin,
+  updateCategory,
+  updateCategoryStatus
+} from '@/api/admin'
+import { formatDateTime } from '@/utils/format'
+import { batchDeleteSelected } from '@/utils/batchDelete'
 
 const loading = ref(false)
 const saving = ref(false)
 const dialogVisible = ref(false)
 const categoryList = ref<Category[]>([])
+const selectedCategories = ref<Category[]>([])
 const editingCategory = ref<Category | null>(null)
 const formRef = ref<FormInstance>()
+const total = ref(0)
+
+const query = reactive({
+  page: 1,
+  size: 10
+})
 
 const form = reactive({
+  parentId: 0,
   name: '',
-  icon: '',
   sort: 0,
   status: 1
 })
@@ -105,14 +134,13 @@ const rules: FormRules = {
 async function loadCategories() {
   loading.value = true
   try {
-    // TODO: 调用接口获取分类列表
-    categoryList.value = [
-      { id: 1, name: '新鲜水果', icon: '', sort: 1, status: 1, productCount: 120, createTime: '2024-01-01 10:00' },
-      { id: 2, name: '时令蔬菜', icon: '', sort: 2, status: 1, productCount: 85, createTime: '2024-01-01 10:00' },
-      { id: 3, name: '海鲜水产', icon: '', sort: 3, status: 1, productCount: 56, createTime: '2024-01-01 10:00' },
-      { id: 4, name: '肉禽蛋品', icon: '', sort: 4, status: 1, productCount: 42, createTime: '2024-01-01 10:00' },
-      { id: 5, name: '乳品烘焙', icon: '', sort: 5, status: 0, productCount: 28, createTime: '2024-01-01 10:00' }
-    ] as Category[]
+    const res = await getCategoryListForAdmin({ pageNum: query.page, pageSize: query.size })
+    categoryList.value = sortCategories((res.data as any)?.records || (res.data as any)?.list || [])
+    total.value = (res.data as any)?.total || 0
+  } catch {
+    ElMessage.error('获取分类列表失败')
+    categoryList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
@@ -125,29 +153,24 @@ function handleAdd() {
 
 function handleEdit(category: Category) {
   editingCategory.value = category
+  form.parentId = category.parentId || 0
   form.name = category.name
-  form.icon = category.icon || ''
   form.sort = category.sort || 0
   form.status = category.status
   dialogVisible.value = true
 }
 
+function handleSelectionChange(selection: Category[]) {
+  selectedCategories.value = selection
+}
+
 function resetForm() {
+  form.parentId = 0
   form.name = ''
-  form.icon = ''
   form.sort = 0
   form.status = 1
   editingCategory.value = null
   formRef.value?.resetFields()
-}
-
-function handleIconUpload(file: File) {
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    form.icon = e.target?.result as string
-  }
-  reader.readAsDataURL(file)
-  return false
 }
 
 async function handleSubmit() {
@@ -157,14 +180,17 @@ async function handleSubmit() {
   saving.value = true
   try {
     if (editingCategory.value) {
-      // TODO: 调用更新接口
+      await updateCategory(editingCategory.value.id, { ...form })
       ElMessage.success('分类更新成功')
     } else {
-      // TODO: 调用添加接口
+      await addCategory({ ...form })
       ElMessage.success('分类添加成功')
+      query.page = 1
     }
     dialogVisible.value = false
     loadCategories()
+  } catch {
+    ElMessage.error(editingCategory.value ? '分类更新失败' : '分类添加失败')
   } finally {
     saving.value = false
   }
@@ -172,10 +198,11 @@ async function handleSubmit() {
 
 async function handleStatusChange(category: Category) {
   try {
-    // TODO: 调用修改状态接口
+    await updateCategoryStatus(category.id, category.status)
     ElMessage.success('状态更新成功')
   } catch {
     category.status = category.status === 1 ? 0 : 1
+    ElMessage.error('状态更新失败')
   }
 }
 
@@ -186,15 +213,42 @@ async function handleDelete(category: Category) {
   }
   await ElMessageBox.confirm('确定要删除该分类吗？', '删除确认', { type: 'warning' })
   try {
-    // TODO: 调用删除接口
+    await deleteCategory(category.id)
     ElMessage.success('删除成功')
     loadCategories()
-  } catch {}
+  } catch {
+    ElMessage.error('删除失败')
+  }
+}
+
+async function handleBatchDelete() {
+  const blocked = selectedCategories.value.filter(category => (category.productCount || 0) > 0)
+  if (blocked.length > 0) {
+    ElMessage.warning('选中的分类中有已关联商品的分类，不能批量删除')
+    return
+  }
+
+  await batchDeleteSelected({
+    items: selectedCategories.value,
+    label: '分类',
+    deleteOne: deleteCategory,
+    afterDelete: loadCategories
+  })
+  selectedCategories.value = []
 }
 
 onMounted(() => {
   loadCategories()
 })
+
+function sortCategories(list: Category[]) {
+  return [...list].sort((a, b) => {
+    const sortA = a.sort ?? 0
+    const sortB = b.sort ?? 0
+    if (sortA !== sortB) return sortA - sortB
+    return (b.id ?? 0) - (a.id ?? 0)
+  })
+}
 </script>
 
 <style scoped>
@@ -215,43 +269,20 @@ onMounted(() => {
   font-size: 18px;
 }
 
-.category-icon {
-  width: 40px;
-  height: 40px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
-}
-
-.icon-uploader :deep(.el-upload) {
-  width: 80px;
-  height: 80px;
-  border: 2px dashed #ddd;
-  border-radius: var(--radius-md);
+.header-actions {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.icon-uploader :deep(.el-upload:hover) {
-  border-color: var(--color-primary);
-}
-
-.icon-preview {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-}
-
-.upload-icon {
-  font-size: 24px;
-  color: #ccc;
+  gap: 12px;
 }
 
 .form-tip {
   margin-left: 12px;
   font-size: 12px;
   color: var(--color-text-secondary);
+}
+
+.pagination {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
 }
 </style>

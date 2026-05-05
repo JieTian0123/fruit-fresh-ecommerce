@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 260" role="img" aria-label="daily fresh produce">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0fff6"/>
+      <stop offset="0.55" stop-color="#d9f7e8"/>
+      <stop offset="1" stop-color="#fff3cf"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#28b46b"/>
+      <stop offset="1" stop-color="#7bcf75"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#2f6b4a" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect width="420" height="260" rx="28" fill="url(#bg)"/>
+  <path d="M36 196c86-16 124 22 202 3 67-16 101-66 151-53v88H36z" fill="#bfe9cb" opacity=".55"/>
+  <circle cx="338" cy="56" r="42" fill="#ffe49a" opacity=".8"/>
+  <g filter="url(#shadow)">
+    <rect x="88" y="118" width="220" height="74" rx="16" fill="#d39446"/>
+    <path d="M98 131h200v22H98z" fill="#e9b568"/>
+    <path d="M122 119v71M169 119v71M216 119v71M263 119v71" stroke="#a86832" stroke-width="5" opacity=".7"/>
+  </g>
+  <g filter="url(#shadow)">
+    <circle cx="146" cy="105" r="34" fill="#ff8a5b"/>
+    <circle cx="194" cy="91" r="42" fill="#f7c448"/>
+    <circle cx="246" cy="107" r="34" fill="#e8564f"/>
+    <path d="M194 49c22 2 34 12 39 30-19 5-36-2-48-21z" fill="url(#leaf)"/>
+    <path d="M250 70c22-9 40-6 52 8-13 16-33 20-54 10z" fill="url(#leaf)"/>
+    <path d="M138 68c-20-8-35-4-45 9 12 14 29 16 47 7z" fill="url(#leaf)"/>
+  </g>
+  <g fill="none" stroke="#55b77a" stroke-width="3" opacity=".55">
+    <path d="M48 67c18-18 38-22 61-12"/>
+    <path d="M307 190c22 7 44 4 66-11"/>
+  </g>
+</svg>

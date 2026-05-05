@@ -3,7 +3,7 @@
     <div class="profile-card">
       <div class="card-header">
         <h2><el-icon><User /></el-icon> 个人信息</h2>
-        <el-button v-if="!isEditing" type="primary" text @click="isEditing = true">
+        <el-button v-if="!isEditing" type="primary" text @click="startEdit">
           <el-icon><Edit /></el-icon> 编辑
         </el-button>
       </div>
@@ -63,11 +63,11 @@
         </el-form-item>
         
         <el-form-item label="手机号" prop="phone">
-          <el-input v-model="form.phone" placeholder="请输入手机号" maxlength="11" />
+          <el-input v-model="form.phone" placeholder="留空则不修改手机号" maxlength="11" />
         </el-form-item>
         
         <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" placeholder="请输入邮箱" />
+          <el-input v-model="form.email" placeholder="留空则不修改邮箱" />
         </el-form-item>
         
         <el-form-item>
@@ -170,12 +170,39 @@ const rules: FormRules = {
     { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
   ],
   phone: [
-    { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+    {
+      validator: (_rule, value, callback) => {
+        if (!value || /^1[3-9]\d{9}$/.test(value)) {
+          callback()
+          return
+        }
+        callback(new Error('请输入正确的手机号'))
+      },
+      trigger: 'blur'
+    }
   ],
   email: [
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+    {
+      validator: (_rule, value, callback) => {
+        if (!value) {
+          callback()
+          return
+        }
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+        if (emailPattern.test(value)) {
+          callback()
+          return
+        }
+        callback(new Error('请输入正确的邮箱地址'))
+      },
+      trigger: 'blur'
+    }
   ]
+}
+
+function getEditableFieldValue(value: string | undefined) {
+  if (!value) return ''
+  return value.includes('***') || value.includes('****') ? '' : value
 }
 
 const pwdRules: FormRules = {
@@ -184,7 +211,8 @@ const pwdRules: FormRules = {
   ],
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+    { min: 8, max: 20, message: '密码长度为8-20个字符', trigger: 'blur' },
+    { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/, message: '密码必须包含大小写字母和数字', trigger: 'blur' }
   ],
   confirmPassword: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
@@ -206,8 +234,8 @@ function loadUserInfo() {
   const userInfo = userStore.userInfo
   if (userInfo) {
     form.nickname = userInfo.nickname || ''
-    form.phone = userInfo.phone || ''
-    form.email = userInfo.email || ''
+    form.phone = getEditableFieldValue(userInfo.phone)
+    form.email = getEditableFieldValue(userInfo.email)
     form.avatar = userInfo.avatar || ''
   }
 }
@@ -223,8 +251,8 @@ async function fetchUserInfo() {
       userStore.userInfo = userInfo
       // 更新表单
       form.nickname = userInfo.nickname || ''
-      form.phone = userInfo.phone || ''
-      form.email = userInfo.email || ''
+      form.phone = getEditableFieldValue(userInfo.phone)
+      form.email = getEditableFieldValue(userInfo.email)
       form.avatar = userInfo.avatar || ''
     }
   } catch {
@@ -233,6 +261,11 @@ async function fetchUserInfo() {
   } finally {
     loading.value = false
   }
+}
+
+function startEdit() {
+  loadUserInfo()
+  isEditing.value = true
 }
 
 function cancelEdit() {
@@ -292,17 +325,8 @@ async function handleSubmit() {
       email: form.email,
       avatar: form.avatar
     })
+    await fetchUserInfo()
     ElMessage.success('保存成功')
-    // 更新本地用户信息
-    if (userStore.userInfo) {
-      userStore.userInfo = {
-        ...userStore.userInfo,
-        nickname: form.nickname,
-        phone: form.phone,
-        email: form.email,
-        avatar: form.avatar
-      }
-    }
     isEditing.value = false
   } catch {
     // 错误已由拦截器处理

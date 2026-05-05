@@ -16,36 +16,42 @@
     </div>
     
     <!-- 商家表格 -->
-    <el-table :data="merchantList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column label="商家信息" min-width="200">
-        <template #default="{ row }">
-          <div class="shop-cell">
-            <el-avatar :size="40" :src="row.avatar">{{ row.nickname?.[0] || row.username?.[0] }}</el-avatar>
-            <div class="shop-info">
-              <p class="name">{{ row.nickname || row.username }}</p>
-              <p class="contact">{{ row.phone || '-' }}</p>
+    <div class="admin-table-shell is-medium">
+      <el-table class="admin-data-table" :data="merchantList" v-loading="loading" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="50" />
+        <el-table-column label="商家信息" min-width="180">
+          <template #default="{ row }">
+            <div class="shop-cell">
+              <el-avatar :size="32" :src="normalizeImageUrl(row.avatar, defaultAvatar)">{{ row.nickname?.[0] || row.username?.[0] }}</el-avatar>
+              <div class="shop-info">
+                <p class="name">{{ row.nickname || row.username }}</p>
+                <p class="contact">{{ row.phone || '-' }}</p>
+              </div>
             </div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column prop="username" label="用户名" width="120" />
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="注册时间" width="180" />
-      <el-table-column label="操作" width="280" fixed="right">
-        <template #default="{ row }">
-          <el-button text type="primary" @click="handleView(row)">查看</el-button>
-          <el-button v-if="row.status === 2" text type="success" @click="handleAudit(row, 1)">通过</el-button>
-          <el-button v-if="row.status === 2" text type="danger" @click="handleAudit(row, 0)">拒绝</el-button>
-          <el-button v-if="row.status === 1" text type="danger" @click="handleToggleStatus(row, 0)">禁用</el-button>
-          <el-button v-if="row.status === 0" text type="success" @click="handleToggleStatus(row, 1)">启用</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+          </template>
+        </el-table-column>
+        <el-table-column prop="username" label="用户名" min-width="140" class-name="admin-ellipsis" show-overflow-tooltip />
+        <el-table-column prop="status" label="状态" width="76">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">{{ getStatusText(row.status) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="注册时间" width="168" class-name="admin-nowrap">
+          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="168" class-name="admin-action-column">
+          <template #default="{ row }">
+            <div class="admin-table-actions">
+              <el-button text type="primary" @click="handleView(row)">查看</el-button>
+              <el-button v-if="row.status === 2" text type="success" @click="handleAudit(row, 1)">通过</el-button>
+              <el-button v-if="row.status === 2" text type="danger" @click="handleAudit(row, 0)">拒绝</el-button>
+              <el-button v-if="row.status === 1" text type="danger" @click="handleToggleStatus(row, 0)">禁用</el-button>
+              <el-button v-if="row.status === 0" text type="success" @click="handleToggleStatus(row, 1)">启用</el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
     
     <!-- 分页 -->
     <div class="pagination">
@@ -64,7 +70,7 @@
       <template v-if="currentMerchant">
         <div class="merchant-detail">
           <div class="shop-header">
-            <el-avatar :size="80" :src="currentMerchant.avatar">{{ currentMerchant.nickname?.[0] || currentMerchant.username?.[0] }}</el-avatar>
+            <el-avatar :size="80" :src="normalizeImageUrl(currentMerchant.avatar, defaultAvatar)">{{ currentMerchant.nickname?.[0] || currentMerchant.username?.[0] }}</el-avatar>
             <div>
               <h3>{{ currentMerchant.nickname || currentMerchant.username }}</h3>
               <el-tag :type="getStatusType(currentMerchant.status)">{{ getStatusText(currentMerchant.status) }}</el-tag>
@@ -76,7 +82,7 @@
             <el-descriptions-item label="用户名">{{ currentMerchant.username }}</el-descriptions-item>
             <el-descriptions-item label="昵称">{{ currentMerchant.nickname || '-' }}</el-descriptions-item>
             <el-descriptions-item label="手机号">{{ currentMerchant.phone || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="注册时间">{{ currentMerchant.createTime }}</el-descriptions-item>
+            <el-descriptions-item label="注册时间">{{ formatDateTime(currentMerchant.createTime) }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </template>
@@ -88,6 +94,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getUserList, approveUser, disableUser, enableUser } from '@/api/admin'
+import { formatDateTime } from '@/utils/format'
+import { defaultAvatar, normalizeImageUrl } from '@/utils/image'
 
 interface Merchant {
   id: number
@@ -207,16 +215,29 @@ onMounted(() => {
 .shop-cell {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+}
+
+.shop-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .shop-info .name {
   font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shop-info .contact {
   font-size: 12px;
   color: var(--color-text-secondary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pagination {

@@ -1,5 +1,6 @@
 package com.fruit.controller.consumer;
 
+import com.fruit.annotation.RateLimit;
 import com.fruit.common.result.Result;
 import com.fruit.dto.LoginDTO;
 import com.fruit.dto.PasswordDTO;
@@ -34,6 +35,7 @@ public class UserController {
     }
 
     @ApiOperation("用户登录")
+    @RateLimit(count = 5, time = 60)
     @PostMapping("/login")
     public Result<LoginVO> login(@Valid @RequestBody LoginDTO dto) {
         LoginVO vo = userService.login(dto);

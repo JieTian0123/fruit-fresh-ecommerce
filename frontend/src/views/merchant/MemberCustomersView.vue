@@ -6,32 +6,32 @@
     </div>
 
     <el-card shadow="never">
-      <el-table :data="customerList" v-loading="loading" style="width: 100%">
-        <el-table-column label="头像" width="80">
+      <el-table class="admin-data-table" :data="customerList" v-loading="loading" :fit="false" style="width: 100%">
+        <el-table-column label="头像" width="58">
           <template #default="{ row }">
-            <el-avatar :size="40" :src="row.avatar || undefined">
+            <el-avatar :size="32" :src="row.avatar || undefined">
               <el-icon :size="20"><User /></el-icon>
             </el-avatar>
           </template>
         </el-table-column>
-        <el-table-column prop="username" label="用户名" min-width="120" />
-        <el-table-column prop="nickname" label="昵称" min-width="120">
+        <el-table-column prop="username" label="用户名" width="130" class-name="admin-ellipsis" show-overflow-tooltip />
+        <el-table-column prop="nickname" label="昵称" width="130" class-name="admin-ellipsis" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.nickname || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="手机号" min-width="130">
+        <el-table-column label="手机号" width="118" class-name="admin-nowrap">
           <template #default="{ row }">
             {{ row.phone || '未绑定' }}
           </template>
         </el-table-column>
-        <el-table-column label="会员等级" width="120">
+        <el-table-column label="会员等级" width="96">
           <template #default="{ row }">
             <el-tag v-if="row.memberLevelName" type="warning">{{ row.memberLevelName }}</el-tag>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="平台VIP" width="100">
+        <el-table-column label="平台VIP" width="82">
           <template #default="{ row }">
             <el-tag v-if="row.isVip === 1" type="danger" effect="dark" size="small">
               <el-icon style="vertical-align: -2px;"><Star /></el-icon> VIP
@@ -39,15 +39,15 @@
             <span v-else style="color: #c0c4cc;">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="orderCount" label="下单次数" width="100" />
-        <el-table-column label="消费总额" width="120">
+        <el-table-column prop="orderCount" label="次数" width="62" />
+        <el-table-column label="消费额" width="88">
           <template #default="{ row }">
             <span class="spend-amount">&yen;{{ (row.totalSpend ?? 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="最近下单" min-width="160">
+        <el-table-column label="最近下单" width="168" class-name="admin-nowrap">
           <template #default="{ row }">
-            {{ formatDate(row.lastOrderTime) }}
+            {{ formatDateTime(row.lastOrderTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -71,24 +71,13 @@ import { ref, onMounted } from 'vue'
 import { getMemberCustomers } from '@/api/merchant'
 import { ElMessage } from 'element-plus'
 import { User } from '@element-plus/icons-vue'
+import { formatDateTime } from '@/utils/format'
 
 const loading = ref(false)
 const customerList = ref<Record<string, unknown>[]>([])
 const total = ref(0)
 const pageNum = ref(1)
 const pageSize = ref(10)
-
-function formatDate(dateStr: string | null | undefined): string {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return '-'
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  const hours = String(d.getHours()).padStart(2, '0')
-  const minutes = String(d.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
-}
 
 async function loadCustomers() {
   loading.value = true

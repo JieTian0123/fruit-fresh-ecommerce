@@ -78,4 +78,7 @@ public class MerchantShop {
 
     @TableLogic
     private Integer deleted;
+
+    @TableField(exist = false)
+    private Integer productCount;
 }

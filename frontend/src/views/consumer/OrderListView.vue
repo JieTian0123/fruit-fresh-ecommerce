@@ -22,13 +22,13 @@
         <div v-for="item in pendingItems" :key="`${item.orderNo}-${item.productId}`" class="review-card">
           <div class="review-header">
             <span class="order-no">订单号：{{ item.orderNo }}</span>
-            <span class="order-time">{{ item.createTime }}</span>
+            <span class="order-time">{{ formatDateTime(item.createTime) }}</span>
           </div>
           <div class="review-content">
-            <img :src="item.productImage" :alt="item.productName" class="product-image" />
+            <img :src="normalizeImageUrl(item.productImage, defaultImage)" :alt="item.productName" class="product-image" />
             <div class="product-info">
               <h4>{{ item.productName }}</h4>
-              <p class="price">¥{{ item.price?.toFixed(2) }} × {{ item.quantity }}</p>
+              <p class="price">¥{{ formatMoney(item.price) }} × {{ item.quantity }}</p>
             </div>
             <el-button
               :type="item.reviewed ? 'info' : 'primary'"
@@ -50,7 +50,7 @@
         <div v-for="order in orders" :key="order.id" class="order-card">
           <div class="order-header">
             <span class="order-no">订单号：{{ order.orderNo }}</span>
-            <span class="order-time">{{ order.createTime }}</span>
+            <span class="order-time">{{ formatDateTime(order.createTime) }}</span>
             <el-tag :type="getStatusType(order.status)" size="small">
               {{ getStatusText(order.status) }}
             </el-tag>
@@ -60,10 +60,10 @@
             <!-- 订单商品摘要 -->
             <div v-if="order.orderItems && order.orderItems.length > 0">
               <div v-for="item in order.orderItems.slice(0, 3)" :key="item.id" class="order-item">
-                <img :src="item.productImage" :alt="item.productName" class="item-image" />
+                <img :src="normalizeImageUrl(item.productImage, defaultImage)" :alt="item.productName" class="item-image" />
                 <div class="item-info">
                   <h4>{{ item.productName }}</h4>
-                  <p>¥{{ item.price?.toFixed(2) }} × {{ item.quantity }}</p>
+                  <p>¥{{ formatMoney(item.price) }} × {{ item.quantity }}</p>
                 </div>
               </div>
               <div v-if="order.orderItems.length > 3" class="more-items">
@@ -117,7 +117,7 @@
     <el-dialog v-model="reviewDialogVisible" title="商品评价" width="500px" :close-on-click-modal="false">
       <div class="review-dialog-content" v-if="currentReviewItem">
         <div class="review-product-info">
-          <img :src="currentReviewItem.productImage" class="review-product-image" />
+        <img :src="normalizeImageUrl(currentReviewItem.productImage, defaultImage)" class="review-product-image" />
           <span>{{ currentReviewItem.productName }}</span>
         </div>
         <el-form :model="reviewForm" label-position="top">
@@ -161,6 +161,8 @@ import { addReview, checkReviewed } from '@/api/review'
 import { OrderStatusText, OrderStatusColor } from '@/types'
 import type { Order, ReviewDTO } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { formatDateTime } from '@/utils/format'
+import { defaultImage, normalizeImageUrl } from '@/utils/image'
 
 const router = useRouter()
 const route = useRoute()
@@ -196,6 +198,11 @@ function getStatusText(status: number) {
 
 function getStatusType(status: number) {
   return OrderStatusColor[status] || 'info'
+}
+
+function formatMoney(value: unknown) {
+  const num = Number(value)
+  return Number.isFinite(num) ? num.toFixed(2) : '0.00'
 }
 
 function handleTabChange() {

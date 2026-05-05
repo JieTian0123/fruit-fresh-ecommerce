@@ -23,6 +23,11 @@ public interface OrderService extends IService<Order> {
     PageResult<Order> listForMerchant(Long merchantId, Integer status, Integer pageNum, Integer pageSize);
 
     /**
+     * 商家订单列表
+     */
+    PageResult<Order> listForMerchant(Long merchantId, Integer status, String orderNo, Integer pageNum, Integer pageSize);
+
+    /**
      * 管理员订单列表
      */
     PageResult<Order> listForAdmin(Integer status, String orderNo, Integer pageNum, Integer pageSize);

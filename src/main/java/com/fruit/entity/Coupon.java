@@ -1,6 +1,7 @@
 package com.fruit.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -69,11 +70,13 @@ public class Coupon {
     /**
      * 有效期开始时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime validFrom;
 
     /**
      * 有效期结束时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime validUntil;
 
     /**
@@ -100,6 +103,11 @@ public class Coupon {
      * 积分兑换价格(NULL表示不可兑换)
      */
     private Integer pointsPrice;
+
+    /**
+     * VIP会员是否可免费领取 0-否 1-是
+     */
+    private Integer vipFreeReceive;
 
     /**
      * 使用说明

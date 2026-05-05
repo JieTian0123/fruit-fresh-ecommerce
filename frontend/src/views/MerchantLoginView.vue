@@ -40,6 +40,25 @@
                 show-password
               />
             </el-form-item>
+
+            <el-form-item prop="captchaCode">
+              <div style="display: flex; gap: 12px; width: 100%;">
+                <el-input
+                  v-model="formData.captchaCode"
+                  placeholder="请输入验证码"
+                  prefix-icon="Key"
+                  style="flex: 1;"
+                  @keyup.enter="handleLogin"
+                />
+                <img
+                  :src="captchaImage"
+                  alt="验证码"
+                  style="height: 40px; cursor: pointer; border-radius: 4px; border: 1px solid #dcdfe6;"
+                  title="点击刷新验证码"
+                  @click="refreshCaptcha"
+                />
+              </div>
+            </el-form-item>
             
             <el-form-item>
               <el-button
@@ -68,19 +87,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { merchantLogin } from '@/api/user'
+import request from '@/api/request'
+
+interface CaptchaResponse {
+  uuid: string
+  image: string
+}
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const captchaImage = ref('')
 
 const formData = reactive({
   username: '',
-  password: ''
+  password: '',
+  captchaCode: '',
+  captchaUuid: ''
 })
 
 const rules: FormRules = {
@@ -91,19 +119,34 @@ const rules: FormRules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 20, message: '密码长度为6-20个字符', trigger: 'blur' }
+  ],
+  captchaCode: [
+    { required: true, message: '请输入验证码', trigger: 'blur' }
   ]
+}
+
+async function refreshCaptcha() {
+  try {
+    const res = await request.get<{ data: CaptchaResponse }>('/captcha')
+    captchaImage.value = res.data.image
+    formData.captchaUuid = res.data.uuid
+    formData.captchaCode = ''
+  } catch {
+    captchaImage.value = ''
+  }
 }
 
 async function handleLogin() {
   if (!formRef.value) return
-  
+
   try {
     const valid = await formRef.value.validate()
     if (!valid) return
-    
+
     loading.value = true
     const res = await merchantLogin(formData)
-    
+    await refreshCaptcha()
+
     // 后端返回扁平结构: { token, userId, username, avatar, role, shopId, shopName }
     const data = res.data
     localStorage.setItem('token', data.token)
@@ -121,12 +164,17 @@ async function handleLogin() {
     ElMessage.success('登录成功')
     router.push('/merchant')
   } catch (error) {
+    await refreshCaptcha()
     // 错误已在拦截器处理
     console.error('商家登录失败:', error)
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  refreshCaptcha()
+})
 </script>
 
 <style scoped>

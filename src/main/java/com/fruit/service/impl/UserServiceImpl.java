@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
+    private static final String CAPTCHA_PREFIX = "captcha:";
     private final JwtUtils jwtUtils;
     private final RedisTemplate<String, Object> redisTemplate;
 
@@ -100,6 +102,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     private LoginVO doLogin(LoginDTO dto, Integer userType) {
+        String captchaKey = CAPTCHA_PREFIX + dto.getCaptchaUuid();
+        Object captchaValue = redisTemplate.opsForValue().get(captchaKey);
+        redisTemplate.delete(captchaKey);
+        if (captchaValue == null || !Objects.equals(String.valueOf(captchaValue), dto.getCaptchaCode().trim())) {
+            throw new BusinessException(ResultCode.CAPTCHA_ERROR);
+        }
+
         // 查询用户
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(User::getUsername, dto.getUsername());
@@ -168,6 +177,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         vo.setEmail(user.getEmail());
         vo.setUserType(user.getUserType());
         vo.setRole(getUserRole(user.getUserType()));
+        vo.setPoints(user.getPoints());
+        vo.setTotalConsumption(user.getTotalConsumption());
 
         return vo;
     }

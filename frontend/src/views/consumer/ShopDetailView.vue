@@ -25,7 +25,7 @@
           @click="handleToggleFollow"
           :loading="followLoading"
         >
-          {{ isFollowed ? '已关注' : '关注店铺' }}
+          {{ isFollowed ? '取消关注' : '关注店铺' }}
         </el-button>
         <el-button type="info" plain @click="contactService">
           <el-icon><ChatDotRound /></el-icon>
@@ -161,7 +161,8 @@ function contactService() {
     router.push('/login')
     return
   }
-  router.push({ path: '/messages', query: { merchantId: shopInfo.value?.merchantId } })
+  if (!shopInfo.value?.merchantId) return
+  router.push(`/chat/${shopInfo.value.merchantId}`)
 }
 
 onMounted(() => {

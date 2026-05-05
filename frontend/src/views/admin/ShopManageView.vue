@@ -13,42 +13,48 @@
     </div>
 
     <!-- Table -->
-    <el-table :data="shopList" v-loading="loading" style="width: 100%">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column label="店铺" min-width="200">
-        <template #default="{ row }">
-          <div class="shop-cell">
-            <el-avatar :size="40" :src="row.logo">{{ row.shopName?.[0] }}</el-avatar>
-            <div class="shop-info">
-              <p class="name">{{ row.shopName }}</p>
-              <p class="phone">{{ row.contactPhone }}</p>
+    <div class="admin-table-shell is-medium">
+      <el-table class="admin-data-table" :data="shopList" v-loading="loading" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="50" />
+        <el-table-column label="店铺" min-width="200">
+          <template #default="{ row }">
+            <div class="shop-cell">
+              <el-avatar :size="36" :src="normalizeImageUrl(row.logo)">{{ row.shopName?.[0] }}</el-avatar>
+              <div class="shop-info">
+                <p class="name">{{ row.shopName }}</p>
+                <p class="phone">{{ row.contactPhone }}</p>
+              </div>
             </div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="地区" min-width="150">
-        <template #default="{ row }">
-          {{ [row.province, row.city, row.district].filter(Boolean).join(' ') || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : row.status === 2 ? 'warning' : 'danger'">
-            {{ row.status === 1 ? '启用' : row.status === 2 ? '待审核' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" width="160" />
-      <el-table-column label="操作" width="280" fixed="right">
-        <template #default="{ row }">
-          <el-button text type="primary" @click="handleView(row)">查看</el-button>
-          <el-button v-if="row.status === 2" text type="success" @click="handleApprove(row, 1)">通过</el-button>
-          <el-button v-if="row.status === 2" text type="danger" @click="handleApprove(row, 0)">拒绝</el-button>
-          <el-button v-if="row.status === 1" text type="danger" @click="handleApprove(row, 0)">禁用</el-button>
-          <el-button v-if="row.status === 0" text type="success" @click="handleApprove(row, 1)">启用</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+          </template>
+        </el-table-column>
+        <el-table-column label="地区" min-width="140" class-name="admin-ellipsis" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ [row.province, row.city, row.district].filter(Boolean).join(' ') || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="92" class-name="admin-tag-column">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 1 ? 'success' : row.status === 2 ? 'warning' : 'danger'" size="small">
+              {{ row.status === 1 ? '启用' : row.status === 2 ? '待审核' : '禁用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="168" class-name="admin-nowrap">
+          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="168" class-name="admin-action-column">
+          <template #default="{ row }">
+            <div class="admin-table-actions">
+              <el-button text type="primary" @click="handleView(row)">查看</el-button>
+              <el-button v-if="row.status === 2" text type="success" @click="handleApprove(row, 1)">通过</el-button>
+              <el-button v-if="row.status === 2" text type="danger" @click="handleApprove(row, 0)">拒绝</el-button>
+              <el-button v-if="row.status === 1" text type="danger" @click="handleApprove(row, 0)">禁用</el-button>
+              <el-button v-if="row.status === 0" text type="success" @click="handleApprove(row, 1)">启用</el-button>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
 
     <!-- Pagination -->
     <div class="pagination">
@@ -67,7 +73,7 @@
       <template v-if="currentShop">
         <div class="shop-detail">
           <div class="avatar-section">
-            <el-avatar :size="80" :src="currentShop.logo">{{ currentShop.shopName?.[0] }}</el-avatar>
+            <el-avatar :size="80" :src="normalizeImageUrl(currentShop.logo)">{{ currentShop.shopName?.[0] }}</el-avatar>
             <h3>{{ currentShop.shopName }}</h3>
             <el-tag :type="currentShop.status === 1 ? 'success' : currentShop.status === 2 ? 'warning' : 'danger'">
               {{ currentShop.status === 1 ? '启用' : currentShop.status === 2 ? '待审核' : '禁用' }}
@@ -81,7 +87,7 @@
             <el-descriptions-item label="详细地址">{{ currentShop.address || '-' }}</el-descriptions-item>
             <el-descriptions-item label="店铺描述">{{ currentShop.description || '-' }}</el-descriptions-item>
             <el-descriptions-item label="营业执照">{{ currentShop.businessLicense || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ currentShop.createTime }}</el-descriptions-item>
+            <el-descriptions-item label="创建时间">{{ formatDateTime(currentShop.createTime) }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </template>
@@ -94,6 +100,8 @@ import { ref, reactive, onMounted } from 'vue'
 import type { MerchantShop } from '@/types'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getShopList, getShopDetail, approveShop } from '@/api/admin'
+import { formatDateTime } from '@/utils/format'
+import { normalizeImageUrl } from '@/utils/image'
 
 const shopList = ref<MerchantShop[]>([])
 const loading = ref(false)
@@ -167,6 +175,14 @@ onMounted(() => {
 .filter-bar { display: flex; gap: 16px; margin-bottom: 24px; }
 .pagination { display: flex; justify-content: flex-end; margin-top: 24px; }
 .shop-cell { display: flex; align-items: center; gap: 12px; }
+.shop-info { flex: 1; min-width: 0; }
+.shop-info .name,
+.shop-info .phone {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .shop-info .name { font-weight: 500; }
 .shop-info .phone { font-size: 12px; color: var(--color-text-secondary); }
 .shop-detail .avatar-section { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-bottom: 24px; }

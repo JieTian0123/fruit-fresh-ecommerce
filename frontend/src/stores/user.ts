@@ -34,10 +34,10 @@ export const useUserStore = defineStore('user', () => {
   const avatar = computed(() => userInfo.value?.avatar || '')
 
   // 登录
-  async function login(username: string, password: string) {
+  async function login(username: string, password: string, captchaCode: string, captchaUuid: string) {
     loading.value = true
     try {
-      const res = await loginApi({ username, password })
+      const res = await loginApi({ username, password, captchaCode, captchaUuid })
       const data = res.data
 
       // 后端直接返回用户数据在 data 中（不是 data.userInfo）

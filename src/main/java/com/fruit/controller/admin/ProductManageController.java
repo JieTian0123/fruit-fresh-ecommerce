@@ -26,10 +26,11 @@ public class ProductManageController {
     public Result<PageResult<Product>> list(
             @ApiParam("商品状态") @RequestParam(required = false) Integer status,
             @ApiParam("关键词") @RequestParam(required = false) String keyword,
+            @ApiParam("分类ID") @RequestParam(required = false) Long categoryId,
             @ApiParam("页码") @RequestParam(defaultValue = "1") Integer pageNum,
             @ApiParam("每页大小") @RequestParam(defaultValue = "10") Integer pageSize) {
 
-        PageResult<Product> pageResult = productService.listForAdmin(status, keyword, pageNum, pageSize);
+        PageResult<Product> pageResult = productService.listForAdmin(status, keyword, categoryId, pageNum, pageSize);
         return Result.success(pageResult);
     }
 
